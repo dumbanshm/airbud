@@ -1,32 +1,47 @@
 import { toSVG } from 'bwip-js/generic';
 import { BlurView } from 'expo-blur';
-import { useMemo, useRef } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { useQuery } from '@tanstack/react-query';
+import { useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { SvgXml } from 'react-native-svg';
 
 import type { Flight } from '../lib/api';
+import { originalBarcodeUri, openOriginal } from '../lib/originalPass';
 import { clockAt, wallDate } from '../lib/time';
 import { DigiYatraButton } from './DigiYatraButton';
 import { useColors } from '../theme';
 
 const INK = '#0E1220';
+const BCID = { pdf417: 'pdf417', qr: 'qrcode', aztec: 'azteccode' } as const;
 
 /**
- * The boarding pass as a QR code. Airlines print the same IATA boarding-pass data as PDF417,
- * Aztec or QR, and the standard lets gate scanners read any of them, so we always show a QR
- * code (the familiar square one) built from the airline's own data.
+ * Fallback when we don't have the airline's printed image (e.g. Apple Wallet passes): the same
+ * data drawn in the airline's own format (Aztec stays Aztec, PDF417 stays PDF417).
  */
 function useBarcodeSvg(pass: Flight['boarding_pass']) {
   return useMemo(() => {
-    if (!pass) return null;
+    if (!pass || pass.original_image) return null;
     try {
-      const svg = toSVG({ bcid: 'qrcode', text: pass.message, scale: 4, barcolor: INK });
-      return { svg, width: 200, height: 200 };
+      const pdf417 = pass.format === 'pdf417' ? { columns: 4, rowmult: 3 } : {};
+      const svg = toSVG({ bcid: BCID[pass.format], text: pass.message, scale: 3, barcolor: INK, ...pdf417 });
+      const [w, h] = (svg.match(/viewBox="0 0 ([\d.]+) ([\d.]+)"/)?.slice(1) ?? ['1', '1']).map(Number);
+      const width = pass.format === 'pdf417' ? 260 : 200;
+      return { svg, width, height: (width * h) / w };
     } catch {
       return null;
     }
-  }, [pass?.message]);
+  }, [pass?.format, pass?.message, pass?.original_image]);
+}
+
+/** The airline's barcode image exactly as printed on its pass. */
+function useOriginalImage(f: Flight) {
+  return useQuery({
+    queryKey: ['pass-barcode', f.id],
+    queryFn: () => originalBarcodeUri(f.id),
+    enabled: !!f.boarding_pass?.original_image,
+    staleTime: Infinity,
+  });
 }
 
 /** The boarding pass: the airline's real barcode once one has arrived (after check-in), a placeholder before that. */
@@ -44,7 +59,10 @@ export function BoardingPass({ flight: f }: { flight: Flight }) {
   ];
 
   const barcode = useBarcodeSvg(f.boarding_pass);
+  const original = useOriginalImage(f);
+  const hasPass = !!f.boarding_pass && (!!barcode || !!f.boarding_pass.original_image);
   const passRef = useRef<View>(null);
+  const [openError, setOpenError] = useState<string | null>(null);
 
   return (
     <View>
@@ -59,7 +77,17 @@ export function BoardingPass({ flight: f }: { flight: Flight }) {
       </View>
       <View style={[styles.tear, { borderColor: c.border }]} />
       <View style={styles.qrWrap}>
-        {barcode ? (
+        {f.boarding_pass?.original_image ? (
+          <View style={styles.qrBox}>
+            {original.data ? (
+              <Image source={{ uri: original.data }} style={styles.originalImage} resizeMode="contain" />
+            ) : (
+              <View style={[styles.originalImage, styles.center]}>
+                {original.error ? <Text style={styles.overlayText}>Couldn’t load the pass</Text> : <ActivityIndicator />}
+              </View>
+            )}
+          </View>
+        ) : barcode ? (
           <View style={styles.qrBox}>
             <SvgXml xml={barcode.svg} width={barcode.width} height={barcode.height} />
           </View>
@@ -75,11 +103,26 @@ export function BoardingPass({ flight: f }: { flight: Flight }) {
           </View>
         )}
         <Text style={[styles.hint, { color: c.muted }]}>
-          {barcode ? 'Scan at the gate. Turn your screen brightness up.' : 'Your real pass shows here once you check in.'}
+          {hasPass
+            ? f.boarding_pass?.original_image
+              ? `${f.airline_name ?? 'Airline'}’s boarding pass, as issued. Scan at the gate with brightness up.`
+              : 'Scan at the gate. Turn your screen brightness up.'
+            : 'Your real pass shows here once you check in.'}
         </Text>
       </View>
     </View>
-    {barcode && f.digiyatra ? <DigiYatraButton passRef={passRef} flightNumber={f.flight_number} /> : null}
+    {f.boarding_pass?.original_file ? (
+      <Pressable
+        onPress={() => openOriginal(f).catch((e) => setOpenError((e as Error).message))}
+        style={({ pressed }) => [styles.openButton, { borderColor: c.border, opacity: pressed ? 0.7 : 1 }]}
+      >
+        <Text style={[styles.openText, { color: c.text }]}>
+          {f.boarding_pass.original_file.content_type.includes('pkpass') ? 'Open original pass (Apple Wallet)' : 'Open original boarding pass (PDF)'}
+        </Text>
+      </Pressable>
+    ) : null}
+    {openError ? <Text style={[styles.hint, { color: '#DC2626' }]}>{openError}</Text> : null}
+    {hasPass && f.digiyatra ? <DigiYatraButton passRef={passRef} flight={f} /> : null}
     </View>
   );
 }
@@ -98,4 +141,8 @@ const styles = StyleSheet.create({
   overlayTitle: { fontSize: 15, fontWeight: '800', letterSpacing: 2, color: INK },
   overlayText: { fontSize: 12, fontWeight: '600', color: '#4B5263' },
   hint: { fontSize: 12, textAlign: 'center' },
+  originalImage: { width: 220, height: 220 },
+  center: { alignItems: 'center', justifyContent: 'center' },
+  openButton: { height: 46, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
+  openText: { fontSize: 14, fontWeight: '700' },
 });

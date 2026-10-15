@@ -26,28 +26,53 @@ def pdf_to_text(data: bytes) -> str:
         return ""
 
 
-def pdf_barcodes(data: bytes) -> list[tuple[str, str]]:
-    """Barcodes drawn in a PDF (e.g. a boarding pass): [(text, "pdf417" | "qr" | "aztec")].
+def scan_pdf(data: bytes) -> list[tuple[str, str, bytes | None]]:
+    """Barcodes drawn in a PDF (e.g. a boarding pass): [(text, "pdf417" | "qr" | "aztec", png)].
 
-    Renders each page and scans it, so it works whether the barcode is an embedded image or vector art.
+    Renders each page and scans it, so it works whether the barcode is an embedded image or vector
+    art. `png` is the barcode cut out of the page exactly as the airline printed it.
     """
     try:
         import pypdfium2 as pdfium
         import zxingcpp
 
         formats = {zxingcpp.BarcodeFormat.PDF417: "pdf417", zxingcpp.BarcodeFormat.QRCode: "qr", zxingcpp.BarcodeFormat.Aztec: "aztec"}
-        wanted = list(formats)
         pdf = pdfium.PdfDocument(data)
-        found = []
+        found: list[tuple[str, str, bytes | None]] = []
         for i in range(min(len(pdf), MAX_BARCODE_PAGES)):
-            image = pdf[i].render(scale=3, grayscale=True).to_pil()
-            for b in zxingcpp.read_barcodes(image, formats=wanted, text_mode=zxingcpp.TextMode.Plain):
-                if b.text and b.format in formats and (b.text, formats[b.format]) not in found:
-                    found.append((b.text, formats[b.format]))
+            image = pdf[i].render(scale=4, grayscale=True).to_pil()
+            for b in zxingcpp.read_barcodes(image, formats=list(formats), text_mode=zxingcpp.TextMode.Plain):
+                if b.text and b.format in formats and all(f[0] != b.text for f in found):
+                    found.append((b.text, formats[b.format], _crop(image, b.position)))
         return found
     except Exception as exc:
         log.info("could not scan PDF attachment for barcodes: %s", exc)
         return []
+
+
+def _crop(image, position) -> bytes | None:
+    """Cut the barcode out of the rendered page, with a white margin so scanners can read it."""
+    try:
+        from PIL import Image
+
+        pts = [position.top_left, position.top_right, position.bottom_right, position.bottom_left]
+        xs, ys = [p.x for p in pts], [p.y for p in pts]
+        left, top, right, bottom = min(xs), min(ys), max(xs), max(ys)
+        pad = int(max(right - left, bottom - top) * 0.08) + 4
+        box = (max(0, left - pad), max(0, top - pad), min(image.width, right + pad), min(image.height, bottom + pad))
+        crop = image.crop(box)
+        out = Image.new("L", (crop.width + 2 * pad, crop.height + 2 * pad), 255)
+        out.paste(crop, (pad, pad))
+        buf = io.BytesIO()
+        out.save(buf, format="PNG", optimize=True)
+        return buf.getvalue()
+    except Exception as exc:
+        log.info("could not crop barcode: %s", exc)
+        return None
+
+
+def pdf_barcodes(data: bytes) -> list[tuple[str, str]]:
+    return [(text, fmt) for text, fmt, _ in scan_pdf(data)]
 
 
 def html_to_text(html: str) -> str:
@@ -90,10 +115,15 @@ def parse_raw(raw: bytes | str) -> EmailContent:
         if ctype == "application/pdf" or filename.endswith(".pdf"):
             data = part.get_payload(decode=True) or b""
             content.pdf_texts.append(pdf_to_text(data))
-            content.pdf_barcodes += pdf_barcodes(data)
+            for text, fmt, png in scan_pdf(data):
+                content.pdf_barcodes.append((text, fmt))
+                if png:
+                    content.barcode_crops[text] = png
+                content.barcode_sources[text] = (part.get_filename() or "boarding-pass.pdf", "application/pdf", data)
             continue
         if ctype == "application/vnd.apple.pkpass" or filename.endswith(".pkpass"):
             content.passes.append(part.get_payload(decode=True) or b"")
+            content.pass_names.append(part.get_filename() or "boarding-pass.pkpass")
             continue
         if part.get_content_maintype() not in ("text",) and not filename.endswith(".ics"):
             continue  # images etc.

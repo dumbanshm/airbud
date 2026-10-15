@@ -71,6 +71,8 @@ def _merge_boarding_passes(booking: ParsedBooking | None, passes: ParsedBooking 
             seg.passengers = seg.passengers or bp.passengers
             seg.barcode_message = seg.barcode_message or bp.barcode_message
             seg.barcode_format = seg.barcode_format or bp.barcode_format
+            seg.barcode_image = seg.barcode_image or bp.barcode_image
+            seg.pass_file = seg.pass_file or bp.pass_file
         elif bp.time_known:
             booking.segments.append(bp)
     booking.pnr = booking.pnr or passes.pnr

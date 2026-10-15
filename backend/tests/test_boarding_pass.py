@@ -13,7 +13,7 @@ from sqlmodel import Session, select
 from app.api import serialize
 from app.db import engine, init_db
 from app.ingest import ingest_email
-from app.models import Booking, Segment, User
+from app.models import PassFile, Booking, Segment, User
 from app.parsing import parse_email, parse_raw
 
 BCBP = "M1RIVERA/ALEX         EPK4X7Z BLRDELAI 2810 296Y014C0042 100"  # day 296 = 23 Oct
@@ -93,8 +93,19 @@ def test_pdf_boarding_pass_attaches_barcode_to_known_flight():
         ingest_email(s, user, _email_with_pdf(_pdf417_pdf(INDIGO_BCBP)), "bp2")
         s.refresh(seg)
         assert seg.dep_local == datetime(2026, 10, 24, 9, 15) and seg.seats == "12A"
-        out = serialize(seg, s.get(Booking, seg.booking_id), datetime.now(timezone.utc).replace(tzinfo=None))
-        assert out["boarding_pass"] == {"message": INDIGO_BCBP, "format": "pdf417"}
+        original = s.get(PassFile, seg.id)
+        out = serialize(seg, s.get(Booking, seg.booking_id), datetime.now(timezone.utc).replace(tzinfo=None), original)
+        assert out["boarding_pass"]["message"] == INDIGO_BCBP and out["boarding_pass"]["format"] == "pdf417"
+        # The airline's own PDF is kept, and its barcode is cut out as printed and still scans.
+        assert out["boarding_pass"]["original_file"]["content_type"] == "application/pdf"
+        assert original.data.startswith(b"%PDF") and out["boarding_pass"]["original_image"]
+        import io
+
+        import zxingcpp
+        from PIL import Image
+
+        (decoded,) = zxingcpp.read_barcodes(Image.open(io.BytesIO(original.barcode_png)))
+        assert decoded.text == INDIGO_BCBP
 
 
 def test_wallet_pass_does_not_erase_arrival_or_report_a_change():

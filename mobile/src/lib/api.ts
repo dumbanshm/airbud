@@ -29,7 +29,14 @@ export type Flight = {
   status: { code: StatusCode; label: string; delay_minutes: number; source: string };
   change_note: string | null;
   /** The real boarding pass barcode (IATA BCBP text), once the airline has sent one. */
-  boarding_pass: { message: string; format: 'pdf417' | 'qr' | 'aztec' } | null;
+  boarding_pass: {
+    message: string;
+    format: 'pdf417' | 'qr' | 'aztec';
+    /** The airline's barcode image as printed is available at /flights/{id}/pass/barcode.png */
+    original_image: boolean;
+    /** The pass file the airline sent, at /flights/{id}/pass/original */
+    original_file: { filename: string; content_type: string } | null;
+  } | null;
   /** Estimated web check-in window; `url` is the airline's check-in page (null if unknown). */
   checkin: { opens_utc: string; closes_utc: string; url: string | null; estimated: boolean; known_airline: boolean };
   /** Departs from an Indian airport, so DigiYatra applies. */
@@ -65,6 +72,10 @@ export class ApiError extends Error {
 
 let token: string | null = null;
 let onUnauthorized: (() => void) | null = null;
+
+export function getApiToken() {
+  return token;
+}
 
 export function setApiToken(value: string | null) {
   token = value;

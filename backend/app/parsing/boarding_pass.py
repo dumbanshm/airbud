@@ -88,7 +88,8 @@ def _departure_from_fields(p: dict) -> datetime | None:
     return None
 
 
-def _segment(leg: dict, dep_time: datetime | None, barcode: tuple[str, str] | None = None) -> ParsedSegment:
+def _segment(leg: dict, dep_time: datetime | None, barcode: tuple[str, str] | None = None,
+             image: bytes | None = None, source: tuple[str, str, bytes] | None = None) -> ParsedSegment:
     code = leg["carrier"]
     if dep_time is not None:
         dep_local = airports.to_airport_local(dep_time, leg["dep"])
@@ -101,14 +102,16 @@ def _segment(leg: dict, dep_time: datetime | None, barcode: tuple[str, str] | No
         passengers=[leg["passenger"]] if leg["passenger"] else [], seats=[leg["seat"]] if leg["seat"] else [],
         time_known=dep_time is not None,
         barcode_message=barcode[0] if barcode else None, barcode_format=barcode[1] if barcode else None,
+        barcode_image=image, pass_file=source,
     )
 
 
 def parse(content: EmailContent) -> ParsedBooking | None:
     ref = content.date.date() if content.date else date.today()
     segments, pnr = [], None
-    for data in content.passes:
+    for i, data in enumerate(content.passes):
         p = _pass_json(data)
+        name = content.pass_names[i] if i < len(content.pass_names) else "boarding-pass.pkpass"
         if not p:
             continue
         codes = [*p.get("barcodes", []), p.get("barcode") or {}]
@@ -118,13 +121,15 @@ def parse(content: EmailContent) -> ParsedBooking | None:
             legs = decode_bcbp(message, ref)
             fmt = PKPASS_FORMATS.get(code.get("format", ""))
             for leg in legs:
-                segments.append(_segment(leg, dep_time, (message, fmt) if fmt else None))
+                segments.append(_segment(leg, dep_time, (message, fmt) if fmt else None,
+                                         source=(name, "application/vnd.apple.pkpass", data)))
                 pnr = pnr or leg["pnr"]
             if legs:
                 break
     for message, fmt in content.pdf_barcodes:
         for leg in decode_bcbp(message, ref):
-            segments.append(_segment(leg, None, (message, fmt)))
+            segments.append(_segment(leg, None, (message, fmt), content.barcode_crops.get(message),
+                                     content.barcode_sources.get(message)))
             pnr = pnr or leg["pnr"]
     for text in [content.text, *content.pdf_texts]:
         for m in BCBP_IN_TEXT_RE.finditer(text or ""):

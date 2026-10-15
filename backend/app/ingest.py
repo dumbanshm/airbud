@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 
 from sqlmodel import Session, select
 
-from .models import Booking, InboundEmail, Segment, User, utcnow
+from .models import Booking, InboundEmail, PassFile, Segment, User, utcnow
 from .parsing import ParsedBooking, ParsedSegment, airports, parse_email, parse_raw
 
 log = logging.getLogger(__name__)
@@ -61,6 +61,17 @@ def _apply_barcode(row: Segment, seg: ParsedSegment) -> None:
         row.barcode_message, row.barcode_format = seg.barcode_message, seg.barcode_format
 
 
+def _store_original(session: Session, row: Segment, seg: ParsedSegment) -> None:
+    """Keep the airline's original pass file and its barcode image for this flight."""
+    if not seg.pass_file or row.id is None:
+        return
+    name, ctype, data = seg.pass_file
+    pf = session.get(PassFile, row.id) or PassFile(segment_id=row.id, filename=name, content_type=ctype, data=data)
+    pf.filename, pf.content_type, pf.data = name, ctype, data
+    pf.barcode_png = seg.barcode_image or pf.barcode_png
+    session.add(pf)
+
+
 def store_booking(session: Session, user: User, parsed: ParsedBooking) -> list[Change]:
     pnr = parsed.pnr
     if not pnr:
@@ -106,6 +117,7 @@ def store_booking(session: Session, user: User, parsed: ParsedBooking) -> list[C
                 row.seats = ", ".join(seg.seats) or row.seats
                 row.passengers = row.passengers or ", ".join(seg.passengers)
                 _apply_barcode(row, seg)
+                _store_original(session, row, seg)
                 row.updated_at = utcnow()
             continue
         if row is None:
@@ -123,6 +135,7 @@ def store_booking(session: Session, user: User, parsed: ParsedBooking) -> list[C
             changes.append(Change("updated", row, row.change_note))
         else:
             _apply(row, seg)
+        _store_original(session, row, seg)
     return changes
 
 

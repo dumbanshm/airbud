@@ -2,7 +2,7 @@ import hashlib
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
@@ -11,7 +11,7 @@ from .config import settings
 from .db import get_session
 from .deps import current_user
 from .ingest import ingest_email
-from .models import Booking, InboundEmail, PushToken, Segment, User, utcnow
+from .models import Booking, InboundEmail, PassFile, PushToken, Segment, User, utcnow
 from .parsing import airports
 
 router = APIRouter(tags=["app"])
@@ -36,7 +36,7 @@ def _side(code: str, local: datetime | None, tz: str, utc: datetime | None, term
     }
 
 
-def serialize(seg: Segment, booking: Booking, now: datetime) -> dict:
+def serialize(seg: Segment, booking: Booking, now: datetime, original: PassFile | None = None) -> dict:
     duration = int((seg.arr_utc - seg.dep_utc).total_seconds() // 60) if seg.arr_utc else None
     return {
         "id": seg.id,
@@ -53,7 +53,13 @@ def serialize(seg: Segment, booking: Booking, now: datetime) -> dict:
         "duration_minutes": duration,
         "status": flight_status.status_for(seg, now),
         "change_note": seg.change_note,
-        "boarding_pass": {"message": seg.barcode_message, "format": seg.barcode_format} if seg.barcode_message else None,
+        "boarding_pass": {
+            "message": seg.barcode_message,
+            "format": seg.barcode_format,
+            # The airline's own files: its barcode exactly as printed, and the pass it sent.
+            "original_image": bool(original and original.barcode_png),
+            "original_file": {"filename": original.filename, "content_type": original.content_type} if original else None,
+        } if seg.barcode_message else None,
         "checkin": checkin.window(seg),
         # DigiYatra covers departures from Indian airports.
         "digiyatra": (airports.airport(seg.dep_airport) or {}).get("country") == "IN",
@@ -81,7 +87,9 @@ def flights(user: User = Depends(current_user), session: Session = Depends(get_s
         select(Segment, Booking).join(Booking).where(Segment.user_id == user.id).order_by(Segment.dep_utc)
     ).all()
     now = utcnow()
-    return [serialize(seg, booking, now) for seg, booking in rows]
+    originals = {p.segment_id: p for p in session.exec(
+        select(PassFile).where(PassFile.segment_id.in_([seg.id for seg, _ in rows]))).all()}
+    return [serialize(seg, booking, now, originals.get(seg.id)) for seg, booking in rows]
 
 
 @router.get("/flights/{segment_id}")
@@ -89,7 +97,32 @@ def flight(segment_id: int, user: User = Depends(current_user), session: Session
     seg = session.get(Segment, segment_id)
     if not seg or seg.user_id != user.id:
         raise HTTPException(404, "Flight not found")
-    return serialize(seg, session.get(Booking, seg.booking_id), utcnow())
+    return serialize(seg, session.get(Booking, seg.booking_id), utcnow(), session.get(PassFile, seg.id))
+
+
+def _own_pass(segment_id: int, user: User, session: Session) -> PassFile:
+    seg = session.get(Segment, segment_id)
+    original = session.get(PassFile, segment_id) if seg and seg.user_id == user.id else None
+    if not original:
+        raise HTTPException(404, "No original boarding pass for this flight")
+    return original
+
+
+@router.get("/flights/{segment_id}/pass/barcode.png")
+def pass_barcode(segment_id: int, user: User = Depends(current_user), session: Session = Depends(get_session)):
+    """The airline's barcode exactly as printed on its boarding pass."""
+    original = _own_pass(segment_id, user, session)
+    if not original.barcode_png:
+        raise HTTPException(404, "This pass has no barcode image")
+    return Response(original.barcode_png, media_type="image/png", headers={"Cache-Control": "private, max-age=86400"})
+
+
+@router.get("/flights/{segment_id}/pass/original")
+def pass_original(segment_id: int, user: User = Depends(current_user), session: Session = Depends(get_session)):
+    """The boarding pass file the airline sent (PDF, or .pkpass for Apple Wallet)."""
+    original = _own_pass(segment_id, user, session)
+    return Response(original.data, media_type=original.content_type,
+                    headers={"Content-Disposition": f'inline; filename="{original.filename}"'})
 
 
 @router.post("/sync")

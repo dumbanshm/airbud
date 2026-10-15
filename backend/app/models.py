@@ -8,6 +8,7 @@ Columns are typed NaiveDatetime because the naming convention, not tzinfo, says 
 from datetime import datetime, timezone
 
 from pydantic import NaiveDatetime
+from sqlalchemy import Column, LargeBinary
 from sqlmodel import Field, SQLModel, UniqueConstraint
 
 
@@ -119,4 +120,15 @@ class PushToken(SQLModel, table=True):
     user_id: int = Field(foreign_key="user.id", index=True, ondelete="CASCADE")
     token: str = Field(unique=True)
     platform: str | None = None
+    created_at: NaiveDatetime = Field(default_factory=utcnow)
+
+
+class PassFile(SQLModel, table=True):
+    """The airline's original boarding pass for a flight: the file it sent, and its barcode as printed."""
+
+    segment_id: int = Field(primary_key=True, foreign_key="segment.id", ondelete="CASCADE")
+    filename: str
+    content_type: str  # application/pdf | application/vnd.apple.pkpass
+    data: bytes = Field(sa_column=Column(LargeBinary, nullable=False))
+    barcode_png: bytes | None = Field(default=None, sa_column=Column(LargeBinary, nullable=True))
     created_at: NaiveDatetime = Field(default_factory=utcnow)

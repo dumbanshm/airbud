@@ -1,9 +1,9 @@
 /**
  * "Add to DigiYatra". DigiYatra's direct app-to-app import is only open to partner airlines
  * (IndiGo's "Share with Digi Yatra"), so we do what DigiYatra supports for everyone: it accepts
- * a boarding pass as an image or PDF. We snapshot the pass (with its real barcode) to a PNG and
- * open the share sheet; from there, save it or send it straight to DigiYatra, then add it in the
- * app under your upcoming travel.
+ * a boarding pass as an image or PDF. We hand it the airline's original PDF when we have it
+ * (otherwise a snapshot of the pass) through the share sheet; from there, save it or send it
+ * straight to DigiYatra, then add it in the app under your upcoming travel.
  */
 import { Ionicons } from '@expo/vector-icons';
 import * as Sharing from 'expo-sharing';
@@ -11,6 +11,8 @@ import { useState, type RefObject } from 'react';
 import { Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
 
+import type { Flight } from '../lib/api';
+import { downloadOriginal } from '../lib/originalPass';
 import { useColors } from '../theme';
 
 const STORE = Platform.select({
@@ -20,7 +22,7 @@ const STORE = Platform.select({
 });
 const STORE_WEB = 'https://play.google.com/store/apps/details?id=org.digiyatra.org';
 
-export function DigiYatraButton({ passRef, flightNumber }: { passRef: RefObject<View | null>; flightNumber: string }) {
+export function DigiYatraButton({ passRef, flight }: { passRef: RefObject<View | null>; flight: Flight }) {
   const c = useColors();
   const [status, setStatus] = useState<string | null>(null);
 
@@ -31,10 +33,16 @@ export function DigiYatraButton({ passRef, flightNumber }: { passRef: RefObject<
   const share = async () => {
     setStatus(null);
     try {
-      const uri = await captureRef(passRef, { format: 'png', quality: 1, result: 'tmpfile' });
       if (!(await Sharing.isAvailableAsync())) throw new Error('Sharing isn’t available on this device.');
-      await Sharing.shareAsync(uri, { mimeType: 'image/png', UTI: 'public.png', dialogTitle: `Boarding pass ${flightNumber}` });
-      setStatus('In DigiYatra: Upcoming travel → add boarding pass → upload this image.');
+      const pdf = flight.boarding_pass?.original_file?.content_type === 'application/pdf';
+      if (pdf) {
+        const uri = await downloadOriginal(flight);
+        await Sharing.shareAsync(uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf', dialogTitle: `Boarding pass ${flight.flight_number}` });
+      } else {
+        const uri = await captureRef(passRef, { format: 'png', quality: 1, result: 'tmpfile' });
+        await Sharing.shareAsync(uri, { mimeType: 'image/png', UTI: 'public.png', dialogTitle: `Boarding pass ${flight.flight_number}` });
+      }
+      setStatus(`In DigiYatra: Upcoming travel → add boarding pass → upload this ${pdf ? 'PDF' : 'image'}.`);
     } catch (e) {
       setStatus((e as Error).message);
     }
