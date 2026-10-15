@@ -1,131 +1,142 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useMutation } from '@tanstack/react-query';
 import { Redirect, router } from 'expo-router';
 import { useEffect } from 'react';
-import { ActivityIndicator, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { FlightCard } from '../src/components/FlightCard';
-import { Button, Card, SectionTitle } from '../src/components/ui';
+import { PastTrip, TripCard } from '../src/components/TripCard';
+import { Enter } from '../src/design/Enter';
+import { Icon } from '../src/design/icons';
+import { PressScale } from '../src/design/PressScale';
+import { Text } from '../src/design/Text';
+import { space, useTheme } from '../src/design/tokens';
+import { Banner, Button, Label, Placeholder } from '../src/design/ui';
 import { api } from '../src/lib/api';
 import { useAuth } from '../src/lib/auth';
-import { useFlights, useMe, usePermission, usePushStatus } from '../src/lib/hooks';
+import { useMe, usePermission, usePushStatus, useTrips } from '../src/lib/hooks';
 import { requestPermission, syncReminders } from '../src/lib/notifications';
 import { queryClient } from '../src/lib/queryClient';
 import { ago } from '../src/lib/time';
-import { useColors } from '../src/theme';
+import { useNow } from '../src/lib/useNow';
 
-const DONE = ['landed', 'cancelled'];
-
-export default function Home() {
-  const c = useColors();
+export default function Trips() {
+  const { c } = useTheme();
   const { status, signInWithGoogle } = useAuth();
-  const flights = useFlights();
+  const trips = useTrips();
   const me = useMe();
   const permission = usePermission();
+  const now = useNow(1000);
   usePushStatus();
 
   // Keep the phone's local reminders in step with whatever the server says.
   useEffect(() => {
-    if (flights.data && permission.data === 'granted') {
-      syncReminders(flights.data).then((n) => queryClient.setQueryData(['reminder-count'], n));
+    if (trips.data && permission.data === 'granted') {
+      syncReminders(trips.data.flatMap((t) => t.flights)).then((n) => queryClient.setQueryData(['reminder-count'], n));
     }
-  }, [flights.data, permission.data]);
+  }, [trips.data, permission.data]);
 
   const sync = useMutation({
     mutationFn: () => api('/sync', { method: 'POST' }),
     onSettled: () => queryClient.invalidateQueries(),
   });
 
-  if (status === 'loading') return <View style={{ flex: 1, backgroundColor: c.bg }} />;
+  if (status === 'loading') return <View style={{ flex: 1, backgroundColor: c.ground }} />;
   if (status === 'signedOut') return <Redirect href="/login" />;
 
-  const all = flights.data ?? [];
-  const upcoming = all.filter((f) => !DONE.includes(f.status.code));
-  const past = all.filter((f) => DONE.includes(f.status.code)).reverse();
-  const [next, ...later] = upcoming;
+  const all = trips.data ?? [];
+  const upcoming = all.filter((t) => !t.past);
+  const past = all.filter((t) => t.past).reverse();
+  const open = (id: number) => router.push(`/flight/${id}`);
+  let i = 0;
 
   return (
-    <SafeAreaView edges={['top']} style={[styles.screen, { backgroundColor: c.bg }]}>
+    <SafeAreaView edges={['top']} style={[styles.screen, { backgroundColor: c.ground }]}>
       <ScrollView
         contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={sync.isPending} onRefresh={() => sync.mutate()} />}
+        refreshControl={<RefreshControl refreshing={sync.isPending} onRefresh={() => sync.mutate()} tintColor={c.muted} colors={[c.ink]} />}
       >
-        <View style={styles.header}>
+        <Enter index={i++} style={styles.header}>
           <View>
-            <Text style={[styles.title, { color: c.text }]}>Trips</Text>
-            <Text style={[styles.subtitle, { color: c.muted }]}>
+            <Text v="displayL">Trips</Text>
+            <Text v="caption" color="muted">
               {me.data?.is_demo ? 'Demo account' : me.data?.email ?? ' '}
               {me.data && !me.data.is_demo ? ` · synced ${ago(me.data.last_synced_at)}` : ''}
             </Text>
           </View>
-          <Pressable onPress={() => router.push('/settings')} hitSlop={12} style={[styles.iconBtn, { backgroundColor: c.card, borderColor: c.border }]}>
-            <Ionicons name="settings-outline" size={20} color={c.text} />
-          </Pressable>
-        </View>
+          <PressScale
+            onPress={() => router.push('/settings')}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel="Settings"
+            style={[styles.iconBtn, { backgroundColor: c.surface, borderColor: c.line }]}
+          >
+            <Icon name="gear" size={19} color={c.ink} />
+          </PressScale>
+        </Enter>
 
         {me.data?.gmail_error ? (
-          <Card style={{ backgroundColor: c.warnSoft, borderColor: 'transparent' }}>
-            <Text style={{ color: c.warnText, fontWeight: '600' }}>{me.data.gmail_error}</Text>
-            {/* While the Google app is in "Testing", Gmail access expires every 7 days. One tap renews it. */}
-            <Button
-              title="Reconnect Gmail"
-              onPress={() => signInWithGoogle().then(() => queryClient.invalidateQueries()).catch(() => {})}
-            />
-          </Card>
+          <Enter index={i++} style={styles.banner}>
+            <Banner tone="changed" icon="mail"
+              action={
+                // While the Google app is in "Testing", Gmail access expires every 7 days. One tap renews it.
+                <Button title="Reconnect Gmail" onPress={() => signInWithGoogle().then(() => queryClient.invalidateQueries()).catch(() => {})} />
+              }>
+              {me.data.gmail_error}
+            </Banner>
+          </Enter>
         ) : null}
 
         {permission.data === 'undetermined' ? (
-          <Card style={{ marginBottom: 6 }}>
-            <View style={styles.bannerRow}>
-              <Ionicons name="notifications" size={22} color={c.accent} />
-              <Text style={[styles.bannerText, { color: c.text }]}>Get reminders when check-in opens, when to leave, and before boarding.</Text>
-            </View>
-            <Button title="Turn on reminders" onPress={async () => { await requestPermission(); permission.refetch(); }} />
-          </Card>
+          <Enter index={i++} style={styles.banner}>
+            <Banner icon="bell" action={<Button title="Turn on reminders" onPress={async () => { await requestPermission(); permission.refetch(); }} />}>
+              Get reminders when check-in opens, when to leave, and before boarding.
+            </Banner>
+          </Enter>
         ) : permission.data === 'denied' ? (
-          <Card style={{ marginBottom: 6 }}>
-            <View style={styles.bannerRow}>
-              <Ionicons name="notifications-off" size={22} color={c.muted} />
-              <Text style={[styles.bannerText, { color: c.text }]}>Notifications are off, so you won’t get boarding reminders.</Text>
-            </View>
-            <Button title="Open Settings" variant="secondary" onPress={() => Linking.openSettings()} />
-          </Card>
+          <Enter index={i++} style={styles.banner}>
+            <Banner icon="bell" action={<Button title="Open Settings" variant="quiet" onPress={() => Linking.openSettings()} />}>
+              Notifications are off, so you won’t get boarding reminders.
+            </Banner>
+          </Enter>
         ) : null}
 
-        {flights.isLoading ? <ActivityIndicator style={{ marginTop: 60 }} /> : null}
-        {flights.error ? <Text style={styles.error}>{(flights.error as Error).message}</Text> : null}
-
-        {flights.isSuccess && all.length === 0 ? (
-          <View style={styles.empty}>
-            <Ionicons name="mail-open-outline" size={40} color={c.faint} />
-            <Text style={[styles.emptyTitle, { color: c.text }]}>No flights yet</Text>
-            <Text style={[styles.emptyText, { color: c.muted }]}>
-              Booking emails in your Gmail show up here automatically. Pull down to check now.
-            </Text>
+        {trips.isLoading ? (
+          <View style={{ gap: space.xxl }}>
+            <Placeholder height={300} />
+            <Placeholder height={150} />
           </View>
         ) : null}
-
-        {next ? (
-          <>
-            <SectionTitle>Next flight</SectionTitle>
-            <FlightCard flight={next} hero onPress={() => router.push(`/flight/${next.id}`)} />
-          </>
+        {trips.error ? (
+          <Banner tone="alert" icon="close" action={<Button title="Try again" variant="quiet" onPress={() => trips.refetch()} />}>
+            {(trips.error as Error).message}
+          </Banner>
         ) : null}
 
-        {later.length ? <SectionTitle>Later</SectionTitle> : null}
-        <View style={styles.list}>
-          {later.map((f) => (
-            <FlightCard key={f.id} flight={f} onPress={() => router.push(`/flight/${f.id}`)} />
-          ))}
-        </View>
+        {trips.isSuccess && all.length === 0 ? (
+          <Enter index={i++} style={styles.empty}>
+            <Icon name="mail" size={34} color={c.faint} />
+            <Text v="displayS">No trips yet</Text>
+            <Text v="body" color="muted" style={{ textAlign: 'center' }}>
+              Booking emails in your Gmail show up here as trips automatically. Pull down to check now.
+            </Text>
+          </Enter>
+        ) : null}
 
-        {past.length ? <SectionTitle>Past</SectionTitle> : null}
-        <View style={styles.list}>
-          {past.map((f) => (
-            <FlightCard key={f.id} flight={f} onPress={() => router.push(`/flight/${f.id}`)} />
-          ))}
-        </View>
+        {upcoming.length ? (
+          <Enter index={i++}><Label right={`${upcoming.length} trip${upcoming.length > 1 ? 's' : ''}`}>Upcoming</Label></Enter>
+        ) : null}
+        {upcoming.map((t, n) => (
+          <Enter key={t.id} index={i++}>
+            <TripCard trip={t} now={now} featured={n === 0} onOpen={open} />
+          </Enter>
+        ))}
+
+        {past.length ? <Enter index={i++}><Label>Earlier</Label></Enter> : null}
+        {past.map((t) => (
+          <Enter key={t.id} index={i++}>
+            <PastTrip trip={t} onOpen={open} />
+          </Enter>
+        ))}
       </ScrollView>
     </SafeAreaView>
   );
@@ -133,16 +144,9 @@ export default function Home() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  content: { padding: 16, paddingBottom: 60, maxWidth: 560, width: '100%', alignSelf: 'center' },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, marginBottom: 12 },
-  title: { fontSize: 34, fontWeight: '800', letterSpacing: -0.5 },
-  subtitle: { fontSize: 14, marginTop: 2 },
+  content: { padding: space.gutter, paddingBottom: space.huge, maxWidth: 560, width: '100%', alignSelf: 'center' },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: space.s, marginBottom: space.xxl },
   iconBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', borderWidth: StyleSheet.hairlineWidth },
-  bannerRow: { flexDirection: 'row', gap: 12, alignItems: 'center' },
-  bannerText: { flex: 1, fontSize: 15, lineHeight: 21 },
-  list: { gap: 12 },
-  error: { color: '#DC2626', textAlign: 'center', marginTop: 40 },
-  empty: { alignItems: 'center', marginTop: 80, gap: 10, paddingHorizontal: 30 },
-  emptyTitle: { fontSize: 18, fontWeight: '700' },
-  emptyText: { fontSize: 15, textAlign: 'center', lineHeight: 21 },
+  banner: { marginBottom: space.l },
+  empty: { alignItems: 'center', marginTop: 80, gap: space.s, paddingHorizontal: space.xxxl },
 });

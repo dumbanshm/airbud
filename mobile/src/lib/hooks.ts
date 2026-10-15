@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { useAuth } from './auth';
-import { api, type EmailLog, type Flight, type Me } from './api';
+import { api, type EmailLog, type Flight, type Me, type Trip } from './api';
+import { queryClient } from './queryClient';
 import { getPermission, registerForRemotePush, scheduledReminderCount } from './notifications';
 
 export function useFlights() {
@@ -9,6 +10,21 @@ export function useFlights() {
   return useQuery({
     queryKey: ['flights'],
     queryFn: () => api<Flight[]>('/flights'),
+    enabled: status === 'signedIn',
+    refetchInterval: 60_000,
+  });
+}
+
+/** Trips, oldest first. Also fills the flat flight cache so a flight screen opens instantly. */
+export function useTrips() {
+  const { status } = useAuth();
+  return useQuery({
+    queryKey: ['trips'],
+    queryFn: async () => {
+      const trips = await api<Trip[]>('/trips');
+      queryClient.setQueryData(['flights'], trips.flatMap((t) => t.flights));
+      return trips;
+    },
     enabled: status === 'signedIn',
     refetchInterval: 60_000,
   });

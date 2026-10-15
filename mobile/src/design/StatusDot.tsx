@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, {
-  cancelAnimation, FadeInDown, interpolateColor, useAnimatedStyle, useDerivedValue, useReducedMotion, useSharedValue,
+  cancelAnimation, interpolateColor, useAnimatedStyle, useDerivedValue, useReducedMotion, useSharedValue,
   withRepeat, withSequence, withTiming,
 } from 'react-native-reanimated';
 
@@ -42,6 +42,14 @@ export function StatusDot({ code, label }: { code: StatusCode; label: string }) 
     }
   }, [code, reduced, pulse]);
 
+  // The label slides up 4px into place whenever it changes.
+  const lift = useSharedValue(0);
+  useEffect(() => {
+    lift.value = 1;
+    lift.value = reduced ? 0 : withTiming(0, { duration: motion.standard, easing: motion.ease });
+  }, [label, reduced, lift]);
+  const text = useAnimatedStyle(() => ({ opacity: 1 - lift.value, transform: [{ translateY: lift.value * 4 }] }));
+
   const dot = useAnimatedStyle(() => ({ backgroundColor: color.value }));
   const halo = useAnimatedStyle(() => ({ transform: [{ scale: 1 + pulse.value * 0.6 }] }));
 
@@ -51,7 +59,7 @@ export function StatusDot({ code, label }: { code: StatusCode; label: string }) 
         <Animated.View style={[styles.halo, { backgroundColor: soft }, halo]} />
         <Animated.View style={[styles.dot, dot]} />
       </View>
-      <Animated.View key={label} entering={reduced ? undefined : FadeInDown.duration(motion.standard)}>
+      <Animated.View style={text}>
         <Text v="label" color={tone === 'ink' ? 'ink' : tone}>{label}</Text>
       </Animated.View>
     </View>

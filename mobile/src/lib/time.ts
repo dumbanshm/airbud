@@ -87,3 +87,35 @@ export function flightProgress(depUtc: string | null, arrUtc: string | null, now
   if (!(arr > dep)) return now >= arr ? 1 : 0;
   return Math.min(1, Math.max(0, (now - dep) / (arr - dep)));
 }
+
+function dayParts(ymd: string) {
+  const [y, m, d] = ymd.split('-').map(Number);
+  return { y, m, d };
+}
+
+/** "16 – 21 Oct", "30 Oct – 2 Nov", or "28 Oct" for a single day. Dates are airport-local. */
+export function dateRange(start: string | null, end: string | null): string {
+  if (!start) return '';
+  const a = dayParts(start);
+  if (!end || end === start) return `${a.d} ${MONTHS[a.m - 1]}`;
+  const b = dayParts(end);
+  if (a.y === b.y && a.m === b.m) return `${a.d} – ${b.d} ${MONTHS[b.m - 1]}`;
+  return `${a.d} ${MONTHS[a.m - 1]} – ${b.d} ${MONTHS[b.m - 1]}`;
+}
+
+/** "Today", "Tomorrow", "Fri 16 Oct": the flight's local date compared with today at that same airport. */
+export function dayLabel(localIso: string | null, now = Date.now()): string {
+  if (!localIso) return '';
+  const today = new Date(now + offsetMinutes(localIso) * 60_000);
+  const p = parts(localIso);
+  const diff = Math.round((Date.UTC(p.y, p.mo - 1, p.d) - Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate())) / 86_400_000);
+  if (diff === 0) return 'Today';
+  if (diff === 1) return 'Tomorrow';
+  if (diff === -1) return 'Yesterday';
+  return wallDate(localIso);
+}
+
+/** "2h 10m" for layovers and other spans. */
+export function span(minutes: number): string {
+  return duration(minutes).replace(' 0', ' ');
+}

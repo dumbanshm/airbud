@@ -5,15 +5,15 @@
  * (otherwise a snapshot of the pass) through the share sheet; from there, save it or send it
  * straight to DigiYatra, then add it in the app under your upcoming travel.
  */
-import { Ionicons } from '@expo/vector-icons';
 import * as Sharing from 'expo-sharing';
 import { useState, type RefObject } from 'react';
-import { Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Linking, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
 
 import type { Flight } from '../lib/api';
 import { downloadOriginal } from '../lib/originalPass';
-import { useColors } from '../theme';
+import { Text } from '../design/Text';
+import { Button } from '../design/ui';
 
 const STORE = Platform.select({
   ios: 'https://apps.apple.com/app/id6479873321',
@@ -23,11 +23,10 @@ const STORE = Platform.select({
 const STORE_WEB = 'https://play.google.com/store/apps/details?id=org.digiyatra.org';
 
 export function DigiYatraButton({ passRef, flight }: { passRef: RefObject<View | null>; flight: Flight }) {
-  const c = useColors();
   const [status, setStatus] = useState<string | null>(null);
 
   if (Platform.OS === 'web') {
-    return <Text style={[styles.note, { color: c.faint }]}>Add to DigiYatra works in the phone app.</Text>;
+    return <Text v="caption" color="muted" style={styles.note}>Add to DigiYatra works in the phone app.</Text>;
   }
 
   const share = async () => {
@@ -52,25 +51,18 @@ export function DigiYatraButton({ passRef, flight }: { passRef: RefObject<View |
 
   return (
     <View style={styles.wrap}>
-      <Pressable
-        onPress={share}
-        style={({ pressed }) => [styles.button, { backgroundColor: c.text, opacity: pressed ? 0.85 : 1 }]}
-      >
-        <Ionicons name="scan-outline" size={18} color={c.bg} />
-        <Text style={[styles.buttonText, { color: c.bg }]}>Add to DigiYatra</Text>
+      <Button title="Add to DigiYatra" icon="face" onPress={share} style={styles.stretch} />
+      <Pressable onPress={openStore} hitSlop={8} accessibilityRole="link">
+        <Text v="label" color="muted" style={styles.link}>Open or get the DigiYatra app</Text>
       </Pressable>
-      <Pressable onPress={openStore} hitSlop={8}>
-        <Text style={[styles.link, { color: c.accent }]}>Open or get the DigiYatra app</Text>
-      </Pressable>
-      {status ? <Text style={[styles.note, { color: c.muted }]}>{status}</Text> : null}
+      {status ? <Text v="caption" color="muted" style={styles.note}>{status}</Text> : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { alignItems: 'center', gap: 10, marginTop: 4, alignSelf: 'stretch' },
-  button: { height: 48, borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, alignSelf: 'stretch' },
-  buttonText: { fontSize: 15, fontWeight: '700' },
-  link: { fontSize: 13, fontWeight: '600' },
-  note: { fontSize: 12, textAlign: 'center' },
+  wrap: { alignItems: 'center', gap: 10, alignSelf: 'stretch' },
+  stretch: { alignSelf: 'stretch' },
+  link: { textDecorationLine: 'underline' },
+  note: { textAlign: 'center' },
 });

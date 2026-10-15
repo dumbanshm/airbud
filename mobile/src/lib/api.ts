@@ -113,3 +113,17 @@ export async function api<T>(path: string, opts: { method?: string; body?: unkno
   }
   return res.json() as Promise<T>;
 }
+
+/** Flights grouped into a trip by the server (see backend/app/trips.py). */
+export type Trip = {
+  id: number;
+  title: string;
+  kind: 'round_trip' | 'one_way';
+  /** Airport-local dates, YYYY-MM-DD. */
+  start_date: string | null;
+  end_date: string | null;
+  pnrs: string[];
+  past: boolean;
+  journeys: { flight_ids: number[]; layovers: { airport: string; city: string; minutes: number }[] }[];
+  flights: Flight[];
+};

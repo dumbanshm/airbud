@@ -1,6 +1,6 @@
 // Airbud's icon set: 24px grid, 1.6 stroke, round caps and joins. The plane is the one filled glyph
 // (Material "flight", Apache 2.0).
-import Svg, { Circle, Path } from 'react-native-svg';
+import Svg, { Circle, G, Path } from 'react-native-svg';
 
 export const PLANE_PATH = 'M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z';
 
@@ -29,8 +29,11 @@ export type IconName = keyof typeof PATHS | 'plane';
 export function Icon({ name, size = 20, color, rotate = 0 }: { name: IconName; size?: number; color: string; rotate?: number }) {
   if (name === 'plane') {
     return (
-      <Svg width={size} height={size} viewBox="0 0 24 24" style={{ transform: [{ rotate: `${rotate}deg` }] }}>
-        <Path d={PLANE_PATH} fill={color} />
+      // Rotated inside the SVG (not with a style transform) so snapshots like the share card keep it.
+      <Svg width={size} height={size} viewBox="0 0 24 24">
+        <G transform={`rotate(${rotate} 12 12)`}>
+          <Path d={PLANE_PATH} fill={color} />
+        </G>
       </Svg>
     );
   }

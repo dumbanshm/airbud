@@ -1,24 +1,35 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
 
 import { Text } from './Text';
 import { motion, type Palette, type, type TypeVariant } from './tokens';
 
-const DIGITS = '0123456789'.split('');
+// Two turns of the drum, so a digit can always roll the short way (0 → 9 is one step, not nine).
+const DRUM = [...'0123456789', ...'0123456789'];
 
 function Digit({ d, v, color, height }: { d: number; v: TypeVariant; color: keyof Palette; height: number }) {
   const reduced = useReducedMotion();
-  const y = useSharedValue(-d * height);
+  const pos = useRef(d + 10);
+  const y = useSharedValue(-pos.current * height);
   useEffect(() => {
-    y.value = reduced ? -d * height : withTiming(-d * height, { duration: motion.slow, easing: motion.ease });
+    const from = pos.current;
+    const delta = ((d - (from % 10) + 15) % 10) - 5;
+    if (!delta) return;
+    // Keep the drum position in the middle turn so every move has room on both sides.
+    let start = from;
+    if (start + delta < 0 || start + delta > 19) start = from + (delta < 0 ? 10 : -10);
+    pos.current = start + delta;
+    if (reduced) { y.value = -pos.current * height; return; }
+    y.value = -start * height;
+    y.value = withTiming(-pos.current * height, { duration: motion.slow, easing: motion.ease });
   }, [d, height, reduced, y]);
   const style = useAnimatedStyle(() => ({ transform: [{ translateY: y.value }] }));
   return (
     <View style={{ height, overflow: 'hidden' }}>
       <Text v={v} style={styles.ghost}>0</Text>
       <Animated.View style={[styles.col, style]}>
-        {DIGITS.map((n) => <Text key={n} v={v} color={color} style={{ height }}>{n}</Text>)}
+        {DRUM.map((n, i) => <Text key={i} v={v} color={color} style={{ height }}>{n}</Text>)}
       </Animated.View>
     </View>
   );
