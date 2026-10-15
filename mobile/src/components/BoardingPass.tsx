@@ -10,23 +10,23 @@ import { clockAt, wallDate } from '../lib/time';
 import { DigiYatraButton } from './DigiYatraButton';
 import { useColors } from '../theme';
 
-const BCID = { pdf417: 'pdf417', qr: 'qrcode', aztec: 'azteccode' } as const;
 const INK = '#0E1220';
 
-/** The airline's barcode as an SVG string, or null if there is none (or it can't be encoded). */
+/**
+ * The boarding pass as a QR code. Airlines print the same IATA boarding-pass data as PDF417,
+ * Aztec or QR, and the standard lets gate scanners read any of them, so we always show a QR
+ * code (the familiar square one) built from the airline's own data.
+ */
 function useBarcodeSvg(pass: Flight['boarding_pass']) {
   return useMemo(() => {
     if (!pass) return null;
     try {
-      const pdf417 = pass.format === 'pdf417' ? { columns: 4, rowmult: 3 } : {};
-      const svg = toSVG({ bcid: BCID[pass.format], text: pass.message, scale: 2, barcolor: INK, ...pdf417 });
-      const [w, h] = (svg.match(/viewBox="0 0 ([\d.]+) ([\d.]+)"/)?.slice(1) ?? ['1', '1']).map(Number);
-      const width = pass.format === 'pdf417' ? 260 : 180;
-      return { svg, width, height: (width * h) / w };
+      const svg = toSVG({ bcid: 'qrcode', text: pass.message, scale: 4, barcolor: INK });
+      return { svg, width: 200, height: 200 };
     } catch {
       return null;
     }
-  }, [pass?.format, pass?.message]);
+  }, [pass?.message]);
 }
 
 /** The boarding pass: the airline's real barcode once one has arrived (after check-in), a placeholder before that. */
