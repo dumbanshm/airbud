@@ -98,6 +98,35 @@ def store_booking(session: Session, user: User, parsed: ParsedBooking) -> list[C
     return changes
 
 
+def reparse_unmatched(session: Session, user: User) -> list[Change]:
+    """Re-run the parsers over emails that failed before (their raw body is kept for this).
+
+    Runs when the server starts, so adding or fixing an airline parser picks up old emails.
+    """
+    rows = session.exec(
+        select(InboundEmail).where(
+            InboundEmail.user_id == user.id, InboundEmail.status.in_(["no_match", "error"]), InboundEmail.raw.is_not(None)
+        )
+    ).all()
+    changes: list[Change] = []
+    for row in rows:
+        try:
+            result = parse_email(parse_raw(row.raw))
+            if not result.booking:
+                continue
+            changes += store_booking(session, user, result.booking)
+        except Exception:
+            log.exception("reparse failed for %s", row.message_id)
+            session.rollback()
+            continue
+        n = len(result.booking.segments)
+        row.status, row.parser, row.raw = "parsed", result.booking.parser, None
+        row.detail = "; ".join([f"{n} flight{'s' * (n != 1)} (re-read)"] + result.notes)
+        session.add(row)
+        session.commit()
+    return changes
+
+
 def ingest_email(
     session: Session, user: User, raw: bytes | str, message_id: str, received_at: datetime | None = None
 ) -> tuple[InboundEmail, list[Change]]:

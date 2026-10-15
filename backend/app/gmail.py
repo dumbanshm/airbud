@@ -2,6 +2,7 @@
 
 import base64
 import logging
+import time
 from datetime import datetime, timezone
 from urllib.parse import urlencode
 
@@ -87,6 +88,43 @@ def _message_ids(client: httpx.Client) -> list[str]:
     return ids[:MAX_MESSAGES_PER_SYNC]
 
 
+class UnreadableMessage(Exception):
+    pass
+
+
+class GmailRateLimited(Exception):
+    pass
+
+
+RATE_LIMIT_REASONS = {"rateLimitExceeded", "userRateLimitExceeded"}
+
+
+def _gmail_error(resp: httpx.Response) -> tuple[str, set[str]]:
+    try:
+        err = resp.json().get("error", {})
+        return str(err.get("message", "")), {e.get("reason") for e in err.get("errors", [])}
+    except ValueError:
+        return resp.text[:200], set()
+
+
+def _fetch_raw(client: httpx.Client, mid: str) -> tuple[bytes, datetime]:
+    """Download one message. Retries rate limits (Gmail reports those as 403 or 429)."""
+    for attempt in range(4):
+        resp = client.get(f"{GMAIL}/messages/{mid}", params={"format": "raw"})
+        if resp.status_code == 200:
+            msg = resp.json()
+            received = datetime.fromtimestamp(int(msg.get("internalDate", 0)) / 1000, timezone.utc).replace(tzinfo=None)
+            return base64.urlsafe_b64decode(msg["raw"] + "=="), received
+        message, reasons = _gmail_error(resp)
+        if resp.status_code == 429 or reasons & RATE_LIMIT_REASONS:
+            time.sleep(2**attempt)
+            continue
+        if resp.status_code in (403, 404):
+            raise UnreadableMessage(f"Gmail refused this message ({resp.status_code}): {message or ', '.join(reasons)}")
+        resp.raise_for_status()
+    raise GmailRateLimited()
+
+
 def sync_user(session: Session, user: User) -> dict:
     """Fetch matching emails we haven't seen yet, parse them, and push any changes to the phone."""
     from sqlmodel import select
@@ -102,15 +140,26 @@ def sync_user(session: Session, user: User) -> dict:
         return {"ok": False, "error": str(exc)}
 
     seen = set(session.exec(select(InboundEmail.message_id).where(InboundEmail.user_id == user.id)).all())
-    stats = {"ok": True, "checked": 0, "parsed": 0, "changes": 0}
+    stats = {"ok": True, "checked": 0, "parsed": 0, "changes": 0, "skipped": 0}
     all_changes = []
     with httpx.Client(headers={"Authorization": f"Bearer {token}"}, timeout=30) as client:
         for mid in _message_ids(client):
             if mid in seen:
                 continue
-            msg = client.get(f"{GMAIL}/messages/{mid}", params={"format": "raw"}).raise_for_status().json()
-            raw = base64.urlsafe_b64decode(msg["raw"] + "==")
-            received = datetime.fromtimestamp(int(msg.get("internalDate", 0)) / 1000, timezone.utc).replace(tzinfo=None)
+            try:
+                raw, received = _fetch_raw(client, mid)
+            except UnreadableMessage as exc:
+                # One email Gmail won't hand over must not stop the rest. Record it so it shows in
+                # the app's "Emails read" list and isn't retried every 15 minutes.
+                log.warning("skipping %s: %s", mid, exc)
+                session.add(InboundEmail(user_id=user.id, message_id=mid, status="error", detail=str(exc)[:500]))
+                session.commit()
+                stats["skipped"] += 1
+                continue
+            except GmailRateLimited:
+                log.warning("gmail rate limit hit; continuing next sync")
+                stats["partial"] = True
+                break
             row, changes = ingest_email(session, user, raw, mid, received)
             stats["checked"] += 1
             stats["parsed"] += row.status == "parsed"

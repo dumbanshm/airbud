@@ -7,9 +7,10 @@ Put the real email (with personal details changed) in tests/emails/ and add a te
 from collections.abc import Callable
 
 from ..types import EmailContent, ParsedBooking
+from . import indigo
 
 AirlineParser = tuple[str, Callable[[EmailContent], bool], Callable[[EmailContent], ParsedBooking | None]]
 
 PARSERS: list[AirlineParser] = [
-    # ("indigo", indigo.matches, indigo.parse),
+    ("indigo", indigo.matches, indigo.parse),
 ]

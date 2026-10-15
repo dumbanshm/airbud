@@ -1,0 +1,33 @@
+From: IndiGo <reservations@customer.goindigo.in>
+To: traveler@example.com
+Subject: Your IndiGo Itinerary - TEST12
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+
+PNR/Booking Ref.: TEST12
+
+Status Date of Booking* Payment Status
+CONFIRMED	01Jun26 10:00:00 (UTC)
+
+Mr.AlexRivera
+
+Date From (Terminal) Departs Flight Number
+(Aircraft type) Check-in/Bag
+drop closes To (Terminal) Arrives Via
+23 Apr 26	Madurai   (T 1)  	17:25	6E7163
+( ATR)  	 16:25	Bengaluru   (T 1)  	18:55
+
+Date From (Terminal) Departs Flight Number
+(Aircraft type) Check-in/Bag
+drop closes To (Terminal) Arrives Via
+23 Apr 26 Bengaluru  (T 1)  21:45 6E  977  20:45 Goa  23:55
+
+Seats and Additional Services
+
+IXM		BLR
+
+BLR		GOI
+
+Passenger Name Seat Services Purchased
+
+Mr. Alex Rivera

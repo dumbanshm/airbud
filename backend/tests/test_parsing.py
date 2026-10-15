@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from pathlib import Path
 
 from app.demo import render_demo_emails
 from app.parsing import parse_email, parse_raw
@@ -63,3 +64,16 @@ def test_dst_handled_by_airport_zone():
     # London is on GMT after the last Sunday of October 2026 (Oct 25)
     assert local_to_utc(datetime(2026, 10, 24, 12, 0), "LHR") == datetime(2026, 10, 24, 11, 0)
     assert local_to_utc(datetime(2026, 10, 27, 12, 0), "LHR") == datetime(2026, 10, 27, 12, 0)
+
+
+def test_indigo_itinerary_one_and_two_line_rows():
+    raw = (Path(__file__).parent / "emails" / "indigo_itinerary.eml").read_text()
+    b = parse_email(parse_raw(raw)).booking
+    assert b.parser == "indigo" and b.pnr == "TEST12"
+    first, second = b.segments
+    assert (first.flight_number, first.dep_airport, first.arr_airport) == ("6E7163", "IXM", "BLR")
+    assert first.dep_local == datetime(2026, 4, 23, 17, 25) and first.dep_terminal == "1"
+    # One-line row (no aircraft type), city "Goa" resolved from the code pairs.
+    assert (second.flight_number, second.dep_airport, second.arr_airport) == ("6E977", "BLR", "GOI")
+    assert second.arr_local == datetime(2026, 4, 23, 23, 55) and second.arr_terminal is None
+    assert first.passengers == ["Alex Rivera"]
