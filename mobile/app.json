@@ -32,7 +32,7 @@
       [
         "expo-notifications",
         {
-          "color": "#2F5BFF"
+          "color": "#16181A"
         }
       ],
       "expo-sharing",

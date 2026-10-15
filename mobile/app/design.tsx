@@ -10,9 +10,12 @@ import { PressScale } from '../src/design/PressScale';
 import { RollingNumber } from '../src/design/RollingNumber';
 import { StatusDot } from '../src/design/StatusDot';
 import { Text } from '../src/design/Text';
+import { WidgetGallery } from '../src/design/WidgetPreviews';
 import { type Palette, radius, shadow, space, type, type TypeVariant, useTheme } from '../src/design/tokens';
 import type { StatusCode } from '../src/lib/api';
+import { useTrips } from '../src/lib/hooks';
 import { countdown } from '../src/lib/time';
+import { widgetSnapshot } from '../src/lib/widgetData';
 import { useNow } from '../src/lib/useNow';
 
 const SWATCHES: (keyof Palette)[] = ['ground', 'surface', 'ink', 'muted', 'line', 'track', 'good', 'changed', 'alert', 'act'];
@@ -41,6 +44,8 @@ export default function DesignSystem() {
   const [status, setStatus] = useState(0);
   const [live, setLive] = useState(0.42);
   const [mode, setMode] = useState<TrackMode>('preview');
+  const trips = useTrips();
+  const snapshot = trips.data ? widgetSnapshot(trips.data, now) : null;
   if (!__DEV__) return <Redirect href="/" />;
 
   const card = [styles.card, { backgroundColor: c.surface }, shadow('card', dark)];
@@ -120,6 +125,10 @@ export default function DesignSystem() {
           <Text v="caption" color="muted">With a connection</Text>
           <FlightTrack mode={mode} progress={live} stops={[0.5]} />
         </View>
+      </Section>
+
+      <Section title="Widgets and Live Activity (need a development build)">
+        {snapshot ? <WidgetGallery s={snapshot} now={now} /> : <Text v="caption" color="muted">Sign in (or use the demo) to preview with your next flight.</Text>}
       </Section>
 
       <Section title="Act now">

@@ -4,8 +4,9 @@ Your flights, pulled from Gmail automatically. Countdown, reminders and a boardi
 Self-hosted, for you and a few friends. No LLM; plain parsing.
 
 ```
-backend/   FastAPI + SQLite. Reads Gmail (read-only), parses bookings, serves the app.
-mobile/    Expo (React Native + TypeScript) app.
+backend/   FastAPI + SQLite. Reads Gmail (read-only), parses bookings, groups them into trips.
+mobile/    Expo (React Native + TypeScript) app. Design language in mobile/DESIGN.md,
+           widgets / Live Activities / exports in mobile/WIDGETS.md.
 ```
 
 ## Run it

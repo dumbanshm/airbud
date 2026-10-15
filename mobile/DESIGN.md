@@ -144,12 +144,19 @@ plane sits at the front of the trail on a small `surface` disc so it masks the t
 
 ## 7. Components
 
-`Text` (variants above), `PressScale`, `Card`, `PassStack`, `FlapCode`, `RollingNumber`,
-`FlightTrack`, `StatusDot`, `Field`, `ActBar` (yellow, one per screen at most), `Button` (ink, quiet
-and danger), and `Icon`. You can see all of them live at the dev-only `/design` route.
+In `src/design/`: `Text` (variants above), `Enter` (the enter pattern, done with shared values
+because Reanimated's layout animations misplace elements on web), `PressScale`, `FlapCode`,
+`RollingNumber`, `StatusDot`, `FlightTrack` and `Icon`. In `ui.tsx`: `Card`, `Label`, `Button`
+(ink, quiet, danger), `ActBar` (yellow, one per screen at most), `Banner`, `Row`, `Hairline`,
+`Perforation` and `Placeholder`.
 
-## 8. Not yet built: widgets, Live Activities, exports
+In `src/components/`: `TripCard` and `PastTrip` (the trips list), `FlightPass`, `LegSwitcher` and
+`DayTimeline` (the flight screen), `Barcode` (the airline's pass, unaltered), `CheckinPanel`,
+`DigiYatraButton` and `ShareCard`.
 
-These will be designed with the same tokens after the main screens are done. Exports (a share
-image, `.ics` and a PDF itinerary) work in Expo Go. Home-screen widgets and iOS Live Activities need
-a development build.
+You can see all of them live at the dev-only `/design` route (Settings → Design system).
+
+## 8. Widgets, Live Activities, exports
+
+See `WIDGETS.md`. Exports (a share image, `.ics` and a PDF itinerary) are built. Widgets and Live
+Activities are designed (previews on `/design`) and need a development build.
