@@ -124,6 +124,7 @@ export default function Settings() {
       <SectionTitle>App</SectionTitle>
       <Card>
         <Row label="Server" value={API_URL} />
+        {__DEV__ ? <Button title="Design system (dev)" variant="secondary" onPress={() => router.push('/design')} /> : null}
         <Button
           title="Sign out"
           variant="danger"
