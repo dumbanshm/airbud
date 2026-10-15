@@ -1,7 +1,8 @@
 """Boarding passes: the IATA BCBP barcode (Resolution 792), the same on every airline's pass.
 
-Reads the barcode text from Apple Wallet passes (.pkpass), and from any email or PDF text that
-happens to include it. The barcode has flight, route, date, seat and PNR, but no times; an
+Reads the barcode text from Apple Wallet passes (.pkpass), from barcode images in PDF attachments
+(decoded in email_utils), and from any email or PDF text that happens to include it. The barcode
+itself is kept so the app can show it at the gate. The barcode has flight, route, date, seat and PNR, but no times; an
 Apple Wallet pass usually adds the departure time in its fields.
 
 Mandatory section layout (field widths):
@@ -63,6 +64,10 @@ def decode_bcbp(data: str, ref: date) -> list[dict]:
     return legs
 
 
+# Apple Wallet barcode formats -> what the app knows how to draw.
+PKPASS_FORMATS = {"PKBarcodeFormatPDF417": "pdf417", "PKBarcodeFormatQR": "qr", "PKBarcodeFormatAztec": "aztec"}
+
+
 def _pass_json(data: bytes) -> dict | None:
     try:
         with zipfile.ZipFile(io.BytesIO(data)) as z:
@@ -83,7 +88,7 @@ def _departure_from_fields(p: dict) -> datetime | None:
     return None
 
 
-def _segment(leg: dict, dep_time: datetime | None) -> ParsedSegment:
+def _segment(leg: dict, dep_time: datetime | None, barcode: tuple[str, str] | None = None) -> ParsedSegment:
     code = leg["carrier"]
     if dep_time is not None:
         dep_local = airports.to_airport_local(dep_time, leg["dep"])
@@ -95,6 +100,7 @@ def _segment(leg: dict, dep_time: datetime | None) -> ParsedSegment:
         dep_local=dep_local if dep_time is not None else datetime.combine(leg["date"], datetime.min.time()),
         passengers=[leg["passenger"]] if leg["passenger"] else [], seats=[leg["seat"]] if leg["seat"] else [],
         time_known=dep_time is not None,
+        barcode_message=barcode[0] if barcode else None, barcode_format=barcode[1] if barcode else None,
     )
 
 
@@ -105,14 +111,21 @@ def parse(content: EmailContent) -> ParsedBooking | None:
         p = _pass_json(data)
         if not p:
             continue
-        codes = [b.get("message", "") for b in p.get("barcodes", [])] + [(p.get("barcode") or {}).get("message", "")]
+        codes = [*p.get("barcodes", []), p.get("barcode") or {}]
         dep_time = _departure_from_fields(p)
-        for message in filter(None, codes):
-            for leg in decode_bcbp(message, ref):
-                segments.append(_segment(leg, dep_time))
+        for code in codes:
+            message = code.get("message") or ""
+            legs = decode_bcbp(message, ref)
+            fmt = PKPASS_FORMATS.get(code.get("format", ""))
+            for leg in legs:
+                segments.append(_segment(leg, dep_time, (message, fmt) if fmt else None))
                 pnr = pnr or leg["pnr"]
-            if segments:
+            if legs:
                 break
+    for message, fmt in content.pdf_barcodes:
+        for leg in decode_bcbp(message, ref):
+            segments.append(_segment(leg, None, (message, fmt)))
+            pnr = pnr or leg["pnr"]
     for text in [content.text, *content.pdf_texts]:
         for m in BCBP_IN_TEXT_RE.finditer(text or ""):
             for leg in decode_bcbp(text[m.start() :], ref):
@@ -120,5 +133,7 @@ def parse(content: EmailContent) -> ParsedBooking | None:
                 pnr = pnr or leg["pnr"]
     if not segments:
         return None
-    unique = {(s.flight_number, s.dep_local.date()): s for s in segments}
+    unique: dict = {}
+    for s in segments:  # first wins: a pass's barcode and time beat text found elsewhere
+        unique.setdefault((s.flight_number, s.dep_local.date()), s)
     return ParsedBooking(pnr=pnr, segments=list(unique.values()), airline_name=segments[0].airline_name, parser="boarding_pass")

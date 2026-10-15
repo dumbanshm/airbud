@@ -12,6 +12,7 @@ from .types import EmailContent
 
 log = logging.getLogger(__name__)
 MAX_PDF_PAGES = 15
+MAX_BARCODE_PAGES = 4
 
 
 def pdf_to_text(data: bytes) -> str:
@@ -23,6 +24,30 @@ def pdf_to_text(data: bytes) -> str:
     except Exception as exc:  # encrypted, scanned or malformed PDFs just contribute nothing
         log.info("could not read PDF attachment: %s", exc)
         return ""
+
+
+def pdf_barcodes(data: bytes) -> list[tuple[str, str]]:
+    """Barcodes drawn in a PDF (e.g. a boarding pass): [(text, "pdf417" | "qr" | "aztec")].
+
+    Renders each page and scans it, so it works whether the barcode is an embedded image or vector art.
+    """
+    try:
+        import pypdfium2 as pdfium
+        import zxingcpp
+
+        formats = {zxingcpp.BarcodeFormat.PDF417: "pdf417", zxingcpp.BarcodeFormat.QRCode: "qr", zxingcpp.BarcodeFormat.Aztec: "aztec"}
+        wanted = list(formats)
+        pdf = pdfium.PdfDocument(data)
+        found = []
+        for i in range(min(len(pdf), MAX_BARCODE_PAGES)):
+            image = pdf[i].render(scale=3, grayscale=True).to_pil()
+            for b in zxingcpp.read_barcodes(image, formats=wanted, text_mode=zxingcpp.TextMode.Plain):
+                if b.text and b.format in formats and (b.text, formats[b.format]) not in found:
+                    found.append((b.text, formats[b.format]))
+        return found
+    except Exception as exc:
+        log.info("could not scan PDF attachment for barcodes: %s", exc)
+        return []
 
 
 def html_to_text(html: str) -> str:
@@ -63,7 +88,9 @@ def parse_raw(raw: bytes | str) -> EmailContent:
         ctype = part.get_content_type()
         filename = (part.get_filename() or "").lower()
         if ctype == "application/pdf" or filename.endswith(".pdf"):
-            content.pdf_texts.append(pdf_to_text(part.get_payload(decode=True) or b""))
+            data = part.get_payload(decode=True) or b""
+            content.pdf_texts.append(pdf_to_text(data))
+            content.pdf_barcodes += pdf_barcodes(data)
             continue
         if ctype == "application/vnd.apple.pkpass" or filename.endswith(".pkpass"):
             content.passes.append(part.get_payload(decode=True) or b"")

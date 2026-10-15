@@ -13,6 +13,11 @@ def test_demo_login_flow_and_schedule_change():
         ai504 = next(f for f in flights if f["flight_number"] == "AI 504")
         assert ai504["departure"]["local_time"].endswith("T18:50:00+05:30")  # the schedule-change email won
         assert "moved" in ai504["change_note"]
+        assert ai504["boarding_pass"] is None
+
+        ai503 = next(f for f in flights if f["flight_number"] == "AI 503")  # the demo's Apple Wallet pass
+        assert ai503["boarding_pass"]["format"] == "pdf417"
+        assert ai503["boarding_pass"]["message"].startswith("M1TRAVELER/DEMO       EQX7P2M BLRDELAI 0503 ")
 
         statuses = {e["status"] for e in client.get("/emails", headers=h).json()}
         assert statuses == {"parsed", "no_match"}

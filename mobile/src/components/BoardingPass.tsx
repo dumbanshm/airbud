@@ -1,11 +1,33 @@
+import { toSVG } from 'bwip-js/generic';
+import { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
+import { SvgXml } from 'react-native-svg';
 
 import type { Flight } from '../lib/api';
 import { clockAt, wallDate } from '../lib/time';
 import { useColors } from '../theme';
 
-/** Placeholder pass. Real ones (IATA BCBP barcodes) only exist after check-in; parsing those is a later step. */
+const BCID = { pdf417: 'pdf417', qr: 'qrcode', aztec: 'azteccode' } as const;
+const INK = '#0E1220';
+
+/** The airline's barcode as an SVG string, or null if there is none (or it can't be encoded). */
+function useBarcodeSvg(pass: Flight['boarding_pass']) {
+  return useMemo(() => {
+    if (!pass) return null;
+    try {
+      const pdf417 = pass.format === 'pdf417' ? { columns: 4, rowmult: 3 } : {};
+      const svg = toSVG({ bcid: BCID[pass.format], text: pass.message, scale: 2, barcolor: INK, ...pdf417 });
+      const [w, h] = (svg.match(/viewBox="0 0 ([\d.]+) ([\d.]+)"/)?.slice(1) ?? ['1', '1']).map(Number);
+      const width = pass.format === 'pdf417' ? 260 : 180;
+      return { svg, width, height: (width * h) / w };
+    } catch {
+      return null;
+    }
+  }, [pass?.format, pass?.message]);
+}
+
+/** The boarding pass: the airline's real barcode once one has arrived (after check-in), a placeholder before that. */
 export function BoardingPass({ flight: f }: { flight: Flight }) {
   const c = useColors();
   const passenger = f.passengers[0] ?? 'Passenger';
@@ -18,6 +40,8 @@ export function BoardingPass({ flight: f }: { flight: Flight }) {
     ['Date', wallDate(f.departure.local_time)],
     ['PNR', f.pnr],
   ];
+
+  const barcode = useBarcodeSvg(f.boarding_pass);
 
   return (
     <View style={[styles.pass, { backgroundColor: c.card, borderColor: c.border }]}>
@@ -32,9 +56,15 @@ export function BoardingPass({ flight: f }: { flight: Flight }) {
       <View style={[styles.tear, { borderColor: c.border }]} />
       <View style={styles.qrWrap}>
         <View style={styles.qrBox}>
-          <QRCode value={payload} size={150} backgroundColor="#FFFFFF" color="#0E1220" />
+          {barcode ? (
+            <SvgXml xml={barcode.svg} width={barcode.width} height={barcode.height} />
+          ) : (
+            <QRCode value={payload} size={150} backgroundColor="#FFFFFF" color={INK} />
+          )}
         </View>
-        <Text style={[styles.hint, { color: c.muted }]}>Placeholder. Your real pass will show here after check-in.</Text>
+        <Text style={[styles.hint, { color: c.muted }]}>
+          {barcode ? 'Scan at the gate. Turn your screen brightness up.' : 'Placeholder. Your real pass will show here after check-in.'}
+        </Text>
       </View>
     </View>
   );

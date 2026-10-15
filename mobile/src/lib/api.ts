@@ -28,6 +28,8 @@ export type Flight = {
   duration_minutes: number | null;
   status: { code: StatusCode; label: string; delay_minutes: number; source: string };
   change_note: string | null;
+  /** The real boarding pass barcode (IATA BCBP text), once the airline has sent one. */
+  boarding_pass: { message: string; format: 'pdf417' | 'qr' | 'aztec' } | null;
 };
 
 export type Me = {

@@ -69,6 +69,8 @@ def _merge_boarding_passes(booking: ParsedBooking | None, passes: ParsedBooking 
         if seg:
             seg.seats = seg.seats or bp.seats
             seg.passengers = seg.passengers or bp.passengers
+            seg.barcode_message = seg.barcode_message or bp.barcode_message
+            seg.barcode_format = seg.barcode_format or bp.barcode_format
         elif bp.time_known:
             booking.segments.append(bp)
     booking.pnr = booking.pnr or passes.pnr
@@ -82,5 +84,6 @@ def parse_email(content: EmailContent) -> ParseResult:
         booking = _run(name, parser, content, notes)
         if booking:
             break
-    passes = _run("boarding_pass", boarding_pass.parse, content, notes) if (content.passes or "M1" in content.text) else None
+    has_pass = content.passes or content.pdf_barcodes or any("M1" in t for t in [content.text, *content.pdf_texts])
+    passes = _run("boarding_pass", boarding_pass.parse, content, notes) if has_pass else None
     return ParseResult(_merge_boarding_passes(booking, passes), notes)

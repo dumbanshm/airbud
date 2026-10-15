@@ -13,6 +13,7 @@ class EmailContent:
     calendars: list[str] = field(default_factory=list)  # raw .ics bodies
     pdf_texts: list[str] = field(default_factory=list)  # text of PDF attachments (e-tickets)
     passes: list[bytes] = field(default_factory=list)  # Apple Wallet .pkpass attachments
+    pdf_barcodes: list[tuple[str, str]] = field(default_factory=list)  # (text, format) read from PDF images
 
 
 @dataclass
@@ -31,6 +32,9 @@ class ParsedSegment:
     # False when only the date is known (e.g. a boarding-pass barcode). Such legs only add seat /
     # passenger details to a flight we already know; they never create one or move its time.
     time_known: bool = True
+    # The boarding pass barcode, to show at the gate: raw message and "pdf417" | "qr" | "aztec".
+    barcode_message: str | None = None
+    barcode_format: str | None = None
 
 
 @dataclass

@@ -53,6 +53,7 @@ def serialize(seg: Segment, booking: Booking, now: datetime) -> dict:
         "duration_minutes": duration,
         "status": flight_status.status_for(seg, now),
         "change_note": seg.change_note,
+        "boarding_pass": {"message": seg.barcode_message, "format": seg.barcode_format} if seg.barcode_message else None,
         "updated_at": _iso_utc(seg.updated_at),
     }
 

@@ -1,6 +1,10 @@
 """Demo account: sample emails with dates relative to now, run through the real parsing pipeline."""
 
+import io
+import json
+import zipfile
 from datetime import datetime, timedelta, timezone
+from email.message import EmailMessage
 from pathlib import Path
 from string import Template
 from zoneinfo import ZoneInfo
@@ -48,6 +52,27 @@ def render_demo_emails(now: datetime | None = None) -> list[tuple[str, str]]:
     return [(p.stem, Template(p.read_text()).safe_substitute(values)) for p in sorted(EMAILS_DIR.glob("*.eml"))]
 
 
+def demo_boarding_pass_email(now: datetime | None = None) -> bytes:
+    """A made-up Apple Wallet boarding pass for the first demo flight (AI 503), so the app shows a real barcode."""
+    dep = datetime.fromisoformat(template_values(now)["ai503_dep"])
+    bcbp = f"M1{'TRAVELER/DEMO':<20}EQX7P2M BLRDELAI 0503 {dep.timetuple().tm_yday:03d}Y014C0001 100"
+    pass_json = {"formatVersion": 1, "description": "Boarding pass",
+                 "barcodes": [{"format": "PKBarcodeFormatPDF417", "message": bcbp, "messageEncoding": "iso-8859-1"}],
+                 "boardingPass": {"transitType": "PKTransitTypeAir",
+                                  "primaryFields": [{"key": "departs", "label": "Departs", "value": dep.isoformat()}]}}
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("pass.json", json.dumps(pass_json))
+    msg = EmailMessage()
+    msg["From"] = "Air India <noreply@airindia.example>"
+    msg["To"] = DEMO_EMAIL
+    msg["Subject"] = "Your boarding pass - AI 503"
+    msg["Message-ID"] = "<demo-boarding-pass@airbud.local>"
+    msg.set_content("You're checked in. Your boarding pass is attached.")
+    msg.add_attachment(buf.getvalue(), maintype="application", subtype="vnd.apple.pkpass", filename="AI503.pkpass")
+    return msg.as_bytes()
+
+
 def seed_demo_user(session: Session) -> User:
     """Reset the demo account so its flights are always in the near future."""
     user = session.exec(select(User).where(User.email == DEMO_EMAIL)).first()
@@ -62,4 +87,5 @@ def seed_demo_user(session: Session) -> User:
 
     for name, raw in render_demo_emails():
         ingest_email(session, user, raw, f"demo-{name}")
+    ingest_email(session, user, demo_boarding_pass_email(), "demo-boarding-pass")
     return user

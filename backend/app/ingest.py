@@ -39,18 +39,26 @@ def _apply(row: Segment, seg: ParsedSegment) -> None:
     row.airline_code = seg.airline_code or row.airline_code
     row.airline_name = seg.airline_name or row.airline_name
     row.dep_airport, row.arr_airport = seg.dep_airport, seg.arr_airport
-    row.dep_local, row.arr_local = seg.dep_local, seg.arr_local
+    # A source without the arrival (e.g. a boarding pass) keeps the one we have, unless departure moved.
+    keep_arr = seg.arr_local is None and row.dep_local == seg.dep_local
+    row.dep_local, row.arr_local = seg.dep_local, row.arr_local if keep_arr else seg.arr_local
     row.dep_tz = airports.tz_name(seg.dep_airport)
     row.arr_tz = airports.tz_name(seg.arr_airport)
     row.dep_utc = airports.local_to_utc(seg.dep_local, seg.dep_airport)
-    row.arr_utc = airports.local_to_utc(seg.arr_local, seg.arr_airport) if seg.arr_local else None
+    row.arr_utc = airports.local_to_utc(row.arr_local, seg.arr_airport) if row.arr_local else None
     row.dep_terminal = seg.dep_terminal or row.dep_terminal
     row.arr_terminal = seg.arr_terminal or row.arr_terminal
     if seg.passengers:
         row.passengers = ", ".join(seg.passengers)
     if seg.seats:
         row.seats = ", ".join(seg.seats)
+    _apply_barcode(row, seg)
     row.updated_at = utcnow()
+
+
+def _apply_barcode(row: Segment, seg: ParsedSegment) -> None:
+    if seg.barcode_message:
+        row.barcode_message, row.barcode_format = seg.barcode_message, seg.barcode_format
 
 
 def store_booking(session: Session, user: User, parsed: ParsedBooking) -> list[Change]:
@@ -97,6 +105,7 @@ def store_booking(session: Session, user: User, parsed: ParsedBooking) -> list[C
             if row:
                 row.seats = ", ".join(seg.seats) or row.seats
                 row.passengers = row.passengers or ", ".join(seg.passengers)
+                _apply_barcode(row, seg)
                 row.updated_at = utcnow()
             continue
         if row is None:
@@ -106,7 +115,7 @@ def store_booking(session: Session, user: User, parsed: ParsedBooking) -> list[C
             session.add(row)
             session.flush()
             changes.append(Change("new", row, f"{seg.dep_airport} → {seg.arr_airport} on {_fmt(seg.dep_local)}"))
-        elif row.dep_local != seg.dep_local or row.arr_local != seg.arr_local:
+        elif row.dep_local != seg.dep_local or (seg.arr_local is not None and row.arr_local != seg.arr_local):
             old = row.dep_local
             _apply(row, seg)
             fmt = (lambda d: d.strftime("%H:%M")) if old.date() == seg.dep_local.date() else _fmt

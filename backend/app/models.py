@@ -89,6 +89,8 @@ class Segment(SQLModel, table=True):
     seats: str = ""  # comma-separated
     cancelled: bool = False
     change_note: str | None = None  # e.g. "Departure moved from 18:05 to 18:50"
+    barcode_message: str | None = None  # boarding pass barcode text (IATA BCBP)
+    barcode_format: str | None = None  # pdf417 | qr | aztec
 
     created_at: NaiveDatetime = Field(default_factory=utcnow)
     updated_at: NaiveDatetime = Field(default_factory=utcnow)
