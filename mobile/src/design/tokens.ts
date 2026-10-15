@@ -64,8 +64,9 @@ export const font = {
   monoMedium: 'DMMono_500Medium',
 } as const;
 
+// includeFontPadding off: Android otherwise pads the line box, which clips the rolling digits.
 const t = (fontFamily: string, fontSize: number, lineHeight: number, letterSpacing = 0, tabular = false): TextStyle => ({
-  fontFamily, fontSize, lineHeight, letterSpacing, ...(tabular ? { fontVariant: ['tabular-nums'] } : {}),
+  fontFamily, fontSize, lineHeight, letterSpacing, includeFontPadding: false, ...(tabular ? { fontVariant: ['tabular-nums'] } : {}),
 });
 
 export const type = {
