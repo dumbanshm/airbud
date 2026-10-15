@@ -78,3 +78,12 @@ export function dateAt(utcIso: string, referenceLocalIso: string | null): string
   const s = new Date(Date.parse(utcIso) + offsetMinutes(referenceLocalIso ?? 'Z') * 60_000);
   return `${DAYS[s.getUTCDay()]} ${s.getUTCDate()} ${MONTHS[s.getUTCMonth()]}`;
 }
+
+/** How far along a flight is, 0 before departure to 1 after arrival, from its scheduled UTC times. */
+export function flightProgress(depUtc: string | null, arrUtc: string | null, now = Date.now()): number {
+  if (!depUtc || !arrUtc) return 0;
+  const dep = Date.parse(depUtc);
+  const arr = Date.parse(arrUtc);
+  if (!(arr > dep)) return now >= arr ? 1 : 0;
+  return Math.min(1, Math.max(0, (now - dep) / (arr - dep)));
+}

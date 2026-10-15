@@ -35,7 +35,8 @@
           "color": "#2F5BFF"
         }
       ],
-      "expo-sharing"
+      "expo-sharing",
+      "expo-font"
     ]
   }
 }

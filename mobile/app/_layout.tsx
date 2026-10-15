@@ -2,7 +2,9 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import * as Notifications from 'expo-notifications';
 import { router, Stack } from 'expo-router';
 import { useEffect, useRef } from 'react';
+import { View } from 'react-native';
 
+import { useAppFonts } from '../src/design/fonts';
 import { AuthProvider } from '../src/lib/auth';
 import { setupNotifications, supported } from '../src/lib/notifications';
 import { queryClient } from '../src/lib/queryClient';
@@ -33,6 +35,9 @@ function NotificationBridge() {
 
 export default function RootLayout() {
   const c = useColors();
+  const fontsReady = useAppFonts();
+  // Hold the first frame until the fonts are in, so nothing flashes in a fallback face.
+  if (!fontsReady) return <View style={{ flex: 1, backgroundColor: c.bg }} />;
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
@@ -50,6 +55,7 @@ export default function RootLayout() {
           <Stack.Screen name="auth" options={{ headerShown: false }} />
           <Stack.Screen name="flight/[id]" options={{ title: '' }} />
           <Stack.Screen name="settings" options={{ title: 'Settings', presentation: 'modal' }} />
+          <Stack.Screen name="design" options={{ title: 'Design system' }} />
         </Stack>
       </AuthProvider>
     </QueryClientProvider>
