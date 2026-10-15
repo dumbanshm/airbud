@@ -30,6 +30,10 @@ export type Flight = {
   change_note: string | null;
   /** The real boarding pass barcode (IATA BCBP text), once the airline has sent one. */
   boarding_pass: { message: string; format: 'pdf417' | 'qr' | 'aztec' } | null;
+  /** Estimated web check-in window; `url` is the airline's check-in page (null if unknown). */
+  checkin: { opens_utc: string; closes_utc: string; url: string | null; estimated: boolean; known_airline: boolean };
+  /** Departs from an Indian airport, so DigiYatra applies. */
+  digiyatra: boolean;
 };
 
 export type Me = {

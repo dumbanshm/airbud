@@ -69,3 +69,22 @@ def test_relay_flow_finishes_over_lan(monkeypatch):
 
         # States are single-use.
         assert client.post("/auth/google/finish", json={"code": "g", "state": state}).status_code == 400
+
+
+def test_checkin_window_per_airline():
+    from datetime import datetime
+
+    from app.checkin import window
+    from app.models import Segment
+
+    def seg(code, dep, arr):
+        return Segment(booking_id=1, user_id=1, flight_number=f"{code}1", airline_code=code, dep_airport=dep, arr_airport=arr,
+                       dep_local=datetime(2026, 11, 5, 9), dep_tz="", arr_tz="", dep_utc=datetime(2026, 11, 5, 3, 30))
+
+    domestic = window(seg("6E", "BLR", "JAI"))
+    assert domestic["opens_utc"] == "2026-11-03T03:30:00Z" and domestic["closes_utc"] == "2026-11-05T02:30:00Z"
+    assert domestic["url"].startswith("https://www.goindigo.in/")
+    international = window(seg("6E", "BLR", "DXB"))  # IndiGo international: 24 h, closes 75 min before
+    assert international["opens_utc"] == "2026-11-04T03:30:00Z" and international["closes_utc"] == "2026-11-05T02:15:00Z"
+    unknown = window(seg("ZZ", "LHR", "JFK"))
+    assert unknown["url"] is None and not unknown["known_airline"]

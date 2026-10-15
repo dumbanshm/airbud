@@ -5,6 +5,7 @@ import type { Flight } from '../lib/api';
 import { countdown, dayShift, duration, wallDate, wallTime } from '../lib/time';
 import { useNow } from '../lib/useNow';
 import { mono, useColors } from '../theme';
+import { CheckinPanel } from './CheckinPanel';
 import { StatusPill } from './StatusPill';
 
 type Props = { flight: Flight; hero?: boolean; onPress?: () => void };
@@ -82,6 +83,8 @@ export function FlightCard({ flight: f, hero, onPress }: Props) {
           <Text style={[styles.noteText, { color: c.warnText }]}>{f.change_note}</Text>
         </View>
       ) : null}
+
+      {!past ? <CheckinPanel flight={f} compact /> : null}
 
       {!past ? (
         <View style={[styles.footer, { borderTopColor: c.border }]}>

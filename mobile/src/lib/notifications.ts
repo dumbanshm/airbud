@@ -19,7 +19,7 @@ import { Platform } from 'react-native';
 
 import { api, type Flight } from './api';
 import { storage } from './storage';
-import { clockAt, wallTime } from './time';
+import { clockAt, wallDate, wallTime } from './time';
 
 export const supported = Platform.OS !== 'web';
 const PREFIX = 'flight-';
@@ -86,9 +86,9 @@ export function remindersFor(f: Flight): Reminder[] {
   return [
     {
       id: `${PREFIX}${f.id}-checkin`,
-      at: new Date(dep - 24 * 3600_000),
-      title: `Check-in is open · ${f.flight_number}`,
-      body: `${route} departs tomorrow at ${depTime}.`,
+      at: new Date(Date.parse(f.checkin.opens_utc)),
+      title: `Web check-in is open · ${f.flight_number}`,
+      body: `${route} departs ${wallDate(f.departure.local_time)} at ${depTime}. Check in to get your boarding pass.`,
     },
     {
       id: `${PREFIX}${f.id}-leave`,

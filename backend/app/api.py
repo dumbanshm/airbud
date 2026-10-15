@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
-from . import flight_status, gmail, push
+from . import checkin, flight_status, gmail, push
 from .config import settings
 from .db import get_session
 from .deps import current_user
@@ -54,6 +54,9 @@ def serialize(seg: Segment, booking: Booking, now: datetime) -> dict:
         "status": flight_status.status_for(seg, now),
         "change_note": seg.change_note,
         "boarding_pass": {"message": seg.barcode_message, "format": seg.barcode_format} if seg.barcode_message else None,
+        "checkin": checkin.window(seg),
+        # DigiYatra covers departures from Indian airports.
+        "digiyatra": (airports.airport(seg.dep_airport) or {}).get("country") == "IN",
         "updated_at": _iso_utc(seg.updated_at),
     }
 

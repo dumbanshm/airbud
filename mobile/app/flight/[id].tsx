@@ -3,6 +3,7 @@ import { Stack, useLocalSearchParams } from 'expo-router';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { BoardingPass } from '../../src/components/BoardingPass';
+import { CheckinPanel } from '../../src/components/CheckinPanel';
 import { FlightCard } from '../../src/components/FlightCard';
 import { Card, SectionTitle } from '../../src/components/ui';
 import { api, type Flight } from '../../src/lib/api';
@@ -35,6 +36,13 @@ export default function FlightDetail() {
     <ScrollView style={{ backgroundColor: c.bg }} contentContainerStyle={styles.content}>
       <Stack.Screen options={{ title: `${f.flight_number} · ${f.departure.airport} → ${f.arrival.airport}` }} />
       <FlightCard flight={f} hero />
+
+      {!['landed', 'cancelled', 'departed'].includes(f.status.code) ? (
+        <>
+          <SectionTitle>Web check-in</SectionTitle>
+          <CheckinPanel flight={f} />
+        </>
+      ) : null}
 
       <SectionTitle>Boarding pass</SectionTitle>
       <BoardingPass flight={f} />

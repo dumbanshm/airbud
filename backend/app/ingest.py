@@ -126,6 +126,19 @@ def store_booking(session: Session, user: User, parsed: ParsedBooking) -> list[C
     return changes
 
 
+def _refetch(user: User, message_id: str) -> bytes | None:
+    from . import gmail  # gmail imports this module
+
+    try:
+        import httpx
+
+        with httpx.Client(headers={"Authorization": f"Bearer {gmail._access_token(user)}"}, timeout=30) as client:
+            return gmail._fetch_raw(client, message_id)[0]
+    except Exception as exc:
+        log.info("could not re-download %s: %s", message_id, exc)
+        return None
+
+
 def reparse_unmatched(session: Session, user: User) -> list[Change]:
     """Re-run the parsers over emails that failed before (their raw body is kept for this).
 
@@ -139,7 +152,11 @@ def reparse_unmatched(session: Session, user: User) -> list[Change]:
     changes: list[Change] = []
     for row in rows:
         try:
-            result = parse_email(parse_raw(row.raw))
+            raw = row.raw
+            if len(raw) >= RAW_KEEP_LIMIT and user.gmail_connected and not row.message_id.startswith(("manual-", "demo-")):
+                # The stored copy was cut off (often mid-PDF); fetch the whole email again.
+                raw = _refetch(user, row.message_id) or raw
+            result = parse_email(parse_raw(raw))
             if not result.booking:
                 continue
             changes += store_booking(session, user, result.booking)

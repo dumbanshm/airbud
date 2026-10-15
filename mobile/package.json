@@ -8,12 +8,14 @@
     "@tanstack/react-query": "^5.104.3",
     "bwip-js": "^4.11.4",
     "expo": "~57.0.30",
+    "expo-blur": "~57.0.3",
     "expo-constants": "~57.0.22",
     "expo-device": "~57.0.2",
     "expo-linking": "~57.0.13",
     "expo-notifications": "~57.0.23",
     "expo-router": "~57.0.28",
     "expo-secure-store": "~57.0.4",
+    "expo-sharing": "~57.0.23",
     "expo-status-bar": "~57.0.1",
     "expo-web-browser": "~57.0.3",
     "react": "19.2.3",
@@ -23,6 +25,7 @@
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",
     "react-native-svg": "15.15.4",
+    "react-native-view-shot": "5.1.0",
     "react-native-web": "^0.21.2"
   },
   "devDependencies": {

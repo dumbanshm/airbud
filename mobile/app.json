@@ -29,7 +29,13 @@
       "expo-router",
       "expo-web-browser",
       "expo-secure-store",
-      ["expo-notifications", { "color": "#2F5BFF" }]
+      [
+        "expo-notifications",
+        {
+          "color": "#2F5BFF"
+        }
+      ],
+      "expo-sharing"
     ]
   }
 }
