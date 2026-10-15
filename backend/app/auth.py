@@ -12,6 +12,7 @@ The one-time code (valid 2 minutes, single use) means the real session token nev
 in a URL, browser history or another app that registered the same scheme.
 """
 
+import base64
 import html
 import logging
 from datetime import timedelta
@@ -60,13 +61,19 @@ def auth_config():
     return {"google": settings.google_enabled, "demo": settings.demo_mode}
 
 
+def _encode_redirect(app_redirect: str) -> str:
+    return base64.urlsafe_b64encode(app_redirect.encode()).decode().rstrip("=")
+
+
 @router.get("/google/start")
 def google_start(app_redirect: str, session: Session = Depends(get_session)):
     if not settings.google_enabled:
         raise HTTPException(503, "Google sign-in isn't configured on this server. See README → Google setup.")
     if not any(app_redirect.startswith(p) for p in settings.redirect_prefixes):
         raise HTTPException(400, "app_redirect is not an allowed app URL")
-    state = security.new_token()
+    # The app URL rides along inside `state` so the static relay page (docs/oauth.html) knows
+    # where to bounce back to. It is also stored here, and only the stored copy is trusted.
+    state = f"{security.new_token()}.{_encode_redirect(app_redirect)}"
     session.add(OAuthState(state=state, app_redirect=app_redirect))
     session.commit()
     return RedirectResponse(gmail.auth_url(state))
@@ -82,32 +89,26 @@ def _initial_sync(user_id: int) -> None:
                 log.exception("initial sync failed")
 
 
-@router.get("/google/callback")
-def google_callback(
-    background: BackgroundTasks,
-    state: str,
-    code: str | None = None,
-    error: str | None = None,
-    session: Session = Depends(get_session),
-):
+def _take_state(session: Session, state: str) -> OAuthState | None:
+    """States are single-use and expire after 10 minutes."""
     saved = session.get(OAuthState, state)
-    if not saved or utcnow() - saved.created_at > STATE_TTL:
-        return HTMLResponse("<p>This sign-in link expired. Go back to the app and try again.</p>", status_code=400)
-    app_redirect = saved.app_redirect
+    if not saved:
+        return None
     session.delete(saved)
     session.commit()
+    return saved if utcnow() - saved.created_at <= STATE_TTL else None
 
-    if error or not code:
-        return _back_to_app(app_redirect, error=error or "cancelled")
+
+def _complete_google_login(session: Session, code: str) -> User:
+    """Swap Google's code for tokens and create/update the user. Raises LoginError."""
     try:
         tokens = gmail.exchange_code(code)
         info = gmail.userinfo(tokens["access_token"])
     except httpx.HTTPError as exc:
         log.warning("google token exchange failed: %s", exc)
-        return _back_to_app(app_redirect, error="google_exchange_failed")
-
+        raise LoginError("google_exchange_failed")
     if "gmail.readonly" not in tokens.get("scope", ""):
-        return _back_to_app(app_redirect, error="gmail_permission_not_granted")
+        raise LoginError("gmail_permission_not_granted")
 
     user = session.exec(select(User).where(User.email == info["email"])).first() or User(email=info["email"])
     user.name, user.picture = info.get("name"), info.get("picture")
@@ -117,12 +118,58 @@ def google_callback(
     session.add(user)
     session.commit()
     session.refresh(user)
+    return user
+
+
+class LoginError(Exception):
+    pass
+
+
+@router.get("/google/callback")
+def google_callback(
+    background: BackgroundTasks,
+    state: str,
+    code: str | None = None,
+    error: str | None = None,
+    session: Session = Depends(get_session),
+):
+    """Used when Google redirects straight to this server (GOOGLE_REDIRECT_URI unset, real HTTPS host)."""
+    saved = _take_state(session, state)
+    if not saved:
+        return HTMLResponse("<p>This sign-in link expired. Go back to the app and try again.</p>", status_code=400)
+    if error or not code:
+        return _back_to_app(saved.app_redirect, error=error or "cancelled")
+    try:
+        user = _complete_google_login(session, code)
+    except LoginError as exc:
+        return _back_to_app(saved.app_redirect, error=str(exc))
 
     one_time = security.new_token()
     session.add(LoginCode(code_hash=security.hash_token(one_time), user_id=user.id, expires_at=utcnow() + CODE_TTL))
     session.commit()
     background.add_task(_initial_sync, user.id)
-    return _back_to_app(app_redirect, code=one_time)
+    return _back_to_app(saved.app_redirect, code=one_time)
+
+
+class FinishIn(BaseModel):
+    code: str
+    state: str
+
+
+@router.post("/google/finish")
+def google_finish(body: FinishIn, background: BackgroundTasks, session: Session = Depends(get_session)):
+    """Used with the static relay page: Google → relay page → app → here (over the LAN).
+
+    The server never has to be reachable from the internet, so no tunnel is needed.
+    """
+    if not _take_state(session, body.state):
+        raise HTTPException(400, "This sign-in attempt expired. Try again.")
+    try:
+        user = _complete_google_login(session, body.code)
+    except LoginError as exc:
+        raise HTTPException(400, str(exc))
+    background.add_task(_initial_sync, user.id)
+    return {"token": _issue_session(session, user)}
 
 
 class ExchangeIn(BaseModel):

@@ -6,21 +6,23 @@ import { useAuth } from '../src/lib/auth';
 import { useColors } from '../src/theme';
 
 /**
- * Lands here when the OS opens airbud://auth?code=… as a deep link (mainly Android).
- * Usually the auth session already handled the code; exchangeCode dedupes so that's safe.
+ * Lands here when the OS opens airbud://auth?… as a deep link (mainly Android).
+ * Usually the auth session already handled it; both calls dedupe by code, so that's safe.
  */
 export default function AuthCallback() {
   const c = useColors();
-  const { status, exchangeCode } = useAuth();
-  const { code, error } = useLocalSearchParams<{ code?: string; error?: string }>();
+  const { status, exchangeCode, finishGoogle } = useAuth();
+  const { code, google_code, state, error } = useLocalSearchParams<{ code?: string; google_code?: string; state?: string; error?: string }>();
   const [failed, setFailed] = useState<string | null>(error ?? null);
 
   useEffect(() => {
-    if (code && status === 'signedOut') exchangeCode(code).catch((e) => setFailed(e.message));
-  }, [code, status, exchangeCode]);
+    if (status !== 'signedOut') return;
+    const done = google_code ? finishGoogle(google_code, state ?? '') : code ? exchangeCode(code) : null;
+    done?.catch((e) => setFailed(e.message));
+  }, [code, google_code, state, status, exchangeCode, finishGoogle]);
 
   if (status === 'signedIn') return <Redirect href="/" />;
-  if (failed || (!code && status === 'signedOut')) return <Redirect href="/login" />;
+  if (failed || (!code && !google_code && status === 'signedOut')) return <Redirect href="/login" />;
   return (
     <View style={[styles.center, { backgroundColor: c.bg }]}>
       <ActivityIndicator />

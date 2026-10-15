@@ -39,24 +39,18 @@ Tests: `cd backend && uv run pytest`
    - Catch: in Testing, Google's Gmail access expires every 7 days. The app then shows a
      **Reconnect Gmail** button; one tap renews it. Your flights and app login aren't affected.
 5. **Credentials → Create credentials → OAuth client ID** → type **Web application**.
-   Under *Authorized redirect URIs* add:
-   - `http://localhost:8000/auth/google/callback`
-   - `https://YOUR-TUNNEL-DOMAIN/auth/google/callback` (from step 2 below)
-6. Copy `backend/.env.example` to `backend/.env` and paste in the client ID and secret.
+   Under *Authorized redirect URIs* add `https://YOUR-GITHUB-USER.github.io/airbud/oauth.html`.
+6. Copy `backend/.env.example` to `backend/.env`, paste in the client ID and secret, and set
+   `GOOGLE_REDIRECT_URI` to that same URL.
 
 Only the **Web application** client is needed. No iOS/Android client IDs, no SHA-1 fingerprints.
 
-### 2. An HTTPS address for your backend (needed for sign-in on a phone)
+### 2. Host the sign-in relay page (free, once)
 
-Google only redirects to `localhost` or `https://`. Your phone isn't localhost, so give the backend
-an HTTPS URL. The simplest free option is an ngrok static domain:
-
-```bash
-ngrok http --url=your-name.ngrok-free.app 8000
-```
-
-Then in `backend/.env` set `PUBLIC_URL=https://your-name.ngrok-free.app` and restart the backend.
-(Cloudflare Tunnel or Tailscale Funnel work too. Later, a $5 VPS with Caddy does the same job.)
+In your fork: **Settings → Pages → Deploy from a branch → `main` / `/docs`**. That publishes
+`docs/oauth.html`, a static page that passes Google's one-time code back to the app. The app then
+sends it to your backend over Wi-Fi, so **the backend never needs to be on the internet**: no tunnel,
+no domain.
 
 ### 3. Remote push (optional)
 
@@ -87,14 +81,17 @@ The app never touches Google directly. The backend runs the whole OAuth flow:
 
 ```
 app ── opens system auth browser ──▶ backend /auth/google/start ──▶ Google consent
-app ◀── airbud://auth?code=ONE_TIME ── backend /auth/google/callback
-app ── POST /auth/exchange {code} ──▶ session token (saved in Keychain / Keystore)
+Google ──▶ docs/oauth.html on GitHub Pages ──▶ airbud://auth?google_code=…&state=…
+app ── POST /auth/google/finish {code, state} ──▶ session token (saved in Keychain / Keystore)
 ```
 
 - The system auth browser (`ASWebAuthenticationSession` / Chrome Custom Tabs) catches the redirect
   back to the app. It works the same in Expo Go (`exp://…`) and in a real build (`airbud://`).
-- The redirect carries a 2-minute, single-use code, never the real token.
-- The backend only redirects to allow-listed app URLs (`APP_REDIRECT_PREFIXES`).
+- Google's code is useless without the client secret, which only the backend has.
+- `state` is single-use and expires in 10 minutes. The relay page and backend only redirect to
+  allow-listed app URLs (`airbud://`, `exp://`).
+- Why not let Google call the backend directly? Then the backend needs a public HTTPS address,
+  and free tunnels (ngrok) put a warning page in front of it that breaks the redirect.
 - The Gmail refresh token stays on the server, encrypted.
 
 ### Notifications

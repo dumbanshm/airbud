@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Airbud sign-in</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: -apple-system, system-ui, sans-serif; text-align: center; padding: 64px 24px; margin: 0; }
+  a.btn { display: inline-block; margin-top: 16px; padding: 14px 22px; border-radius: 12px; background: #2F5BFF; color: #fff; text-decoration: none; font-weight: 600; }
+  p { font-size: 17px; line-height: 1.5; }
+</style>
+</head>
+<body>
+<p id="msg">Signing you in to Airbud…</p>
+<p><a class="btn" id="open" href="#" hidden>Open Airbud</a></p>
+<script>
+// Google redirects here after the consent screen. This page only forwards Google's one-time
+// code to the Airbud app; the app sends it to your own server, which exchanges it using the
+// client secret. Nothing is stored or sent anywhere else.
+(function () {
+  var ALLOWED = ['airbud://', 'exp://', 'exps://'];
+  var q = new URLSearchParams(location.search);
+  var state = q.get('state') || '';
+  var target = '';
+  try {
+    var b = state.split('.')[1] || '';
+    b = b.replace(/-/g, '+').replace(/_/g, '/');
+    target = atob(b + '='.repeat((4 - (b.length % 4)) % 4));
+  } catch (e) {}
+
+  var msg = document.getElementById('msg');
+  if (!ALLOWED.some(function (p) { return target.indexOf(p) === 0; })) {
+    msg.textContent = 'This sign-in link is invalid. Go back to the app and try again.';
+    return;
+  }
+
+  var params = new URLSearchParams();
+  if (q.get('code')) params.set('google_code', q.get('code'));
+  else params.set('error', q.get('error') || 'cancelled');
+  params.set('state', state);
+  var url = target + (target.indexOf('?') >= 0 ? '&' : '?') + params.toString();
+
+  var link = document.getElementById('open');
+  link.href = url;
+  link.hidden = false;
+  history.replaceState(null, '', location.pathname); // drop the code from the address bar
+  location.replace(url);
+})();
+</script>
+</body>
+</html>

@@ -1,13 +1,19 @@
 /**
  * Sign-in for a native app without any native Google SDK.
  *
- * The backend runs the whole Google OAuth flow. The app only opens a system auth browser
- * (ASWebAuthenticationSession on iOS, Chrome Custom Tabs on Android) and waits for the
- * backend to bounce back to our own URL scheme with a one-time code:
+ * The app opens a system auth browser (ASWebAuthenticationSession on iOS, Chrome Custom Tabs
+ * on Android) and waits for a redirect back to our own URL scheme. The client secret and Gmail
+ * tokens never leave the backend.
  *
- *   app ──openAuthSessionAsync──▶ backend /auth/google/start ──▶ Google ──▶ backend /callback
- *   app ◀── airbud://auth?code=… (or exp://…/--/auth in Expo Go)
- *   app ──POST /auth/exchange {code}──▶ { token }  → stored in the Keychain/Keystore
+ *   app ──openAuthSessionAsync──▶ backend /auth/google/start ──▶ Google consent
+ *   Google ──▶ static relay page on GitHub Pages (docs/oauth.html)
+ *   app ◀── airbud://auth?google_code=…&state=… (exp://…/--/auth in Expo Go)
+ *   app ──POST /auth/google/finish {code, state}──▶ { token } → Keychain/Keystore
+ *
+ * Because the app (not Google) carries the code to the backend, the backend never needs to be
+ * reachable from the internet: no tunnel, no interstitial pages, works on home Wi-Fi.
+ * (If the backend does have a real HTTPS address, the older flow via /auth/google/callback and a
+ * one-time `code` still works; both are handled below.)
  *
  * Why this avoids the usual pain: no iOS/Android OAuth client IDs, no SHA-1 fingerprints, no
  * reversed-client-ID URL schemes, and it works the same in Expo Go and in a real build.
@@ -29,6 +35,7 @@ type AuthContextValue = {
   signInWithGoogle: () => Promise<void>;
   signInDemo: () => Promise<void>;
   exchangeCode: (code: string) => Promise<void>;
+  finishGoogle: (googleCode: string, state: string) => Promise<void>;
   signOut: (pushToken?: string | null) => Promise<void>;
 };
 
@@ -80,6 +87,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [finish],
   );
 
+  const finishGoogle = useCallback(
+    (googleCode: string, state: string) => {
+      let p = inFlight.get(googleCode);
+      if (!p) {
+        p = api<{ token: string }>('/auth/google/finish', { method: 'POST', body: { code: googleCode, state } })
+          .catch((e: Error) => {
+            throw new Error(ERRORS[e.message] ?? e.message);
+          })
+          .then(({ token }) => finish(token));
+        inFlight.set(googleCode, p);
+      }
+      return p;
+    },
+    [finish],
+  );
+
   const signInWithGoogle = useCallback(async () => {
     const redirect = Linking.createURL('auth');
     const startUrl = `${API_URL}/auth/google/start?app_redirect=${encodeURIComponent(redirect)}`;
@@ -89,10 +112,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { queryParams } = Linking.parse(result.url);
     const error = queryParams?.error;
     if (error) throw new Error(ERRORS[String(error)] ?? `Sign-in failed: ${error}`);
+    const googleCode = queryParams?.google_code;
+    if (googleCode) return finishGoogle(String(googleCode), String(queryParams?.state ?? ''));
     const code = queryParams?.code;
     if (!code) throw new Error('Sign-in returned without a code.');
     await exchangeCode(String(code));
-  }, [exchangeCode]);
+  }, [exchangeCode, finishGoogle]);
 
   const signInDemo = useCallback(async () => {
     const { token } = await api<{ token: string }>('/auth/demo', { method: 'POST' });
@@ -110,8 +135,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo(
-    () => ({ status, signInWithGoogle, signInDemo, exchangeCode, signOut }),
-    [status, signInWithGoogle, signInDemo, exchangeCode, signOut],
+    () => ({ status, signInWithGoogle, signInDemo, exchangeCode, finishGoogle, signOut }),
+    [status, signInWithGoogle, signInDemo, exchangeCode, finishGoogle, signOut],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

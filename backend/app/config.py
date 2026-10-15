@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -17,7 +18,7 @@ DEFAULT_GMAIL_QUERY = (
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=BASE_DIR / ".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=BASE_DIR / ".env", extra="ignore", populate_by_name=True)
 
     # Where this server is reachable from a browser. Google redirects here after sign-in,
     # so it must match the redirect URI registered in Google Cloud exactly.
@@ -25,6 +26,9 @@ class Settings(BaseSettings):
     database_url: str = f"sqlite:///{DATA_DIR / 'airbud.db'}"
 
     google_client_id: str = ""
+    # Where Google sends the browser after consent. Defaults to this server's /auth/google/callback.
+    # Set it to the GitHub Pages relay (docs/oauth.html) to sign in without exposing this server.
+    google_redirect_uri_override: str = Field(default="", alias="GOOGLE_REDIRECT_URI")
     google_client_secret: str = ""
 
     # Fernet key used to encrypt Gmail refresh tokens at rest. Generated into data/ if empty.
@@ -46,7 +50,7 @@ class Settings(BaseSettings):
 
     @property
     def google_redirect_uri(self) -> str:
-        return f"{self.public_url.rstrip('/')}/auth/google/callback"
+        return self.google_redirect_uri_override or f"{self.public_url.rstrip('/')}/auth/google/callback"
 
     @property
     def redirect_prefixes(self) -> list[str]:
