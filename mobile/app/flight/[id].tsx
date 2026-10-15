@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useRef, useState } from 'react';
 import { ActivityIndicator, Linking, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -59,7 +59,6 @@ export default function FlightScreen() {
   if (!f) {
     return (
       <View style={[styles.screen, { backgroundColor: c.ground }]}>
-        <Stack.Screen options={{ headerShown: false }} />
         {flight.error ? <Text v="body" color="alert" style={{ marginTop: 120, textAlign: 'center' }}>{(flight.error as Error).message}</Text> : <ActivityIndicator style={{ marginTop: 120 }} />}
       </View>
     );
@@ -87,7 +86,6 @@ export default function FlightScreen() {
 
   return (
     <SafeAreaView edges={['top']} style={[styles.screen, { backgroundColor: c.ground }]}>
-      <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.nav}>
         <PressScale onPress={back} hitSlop={12} haptic={false} accessibilityRole="button" accessibilityLabel="Back to trips" style={styles.back}>
           <Icon name="back" size={22} color={c.ink} />

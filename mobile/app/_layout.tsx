@@ -8,7 +8,7 @@ import { useAppFonts } from '../src/design/fonts';
 import { AuthProvider } from '../src/lib/auth';
 import { setupNotifications, supported } from '../src/lib/notifications';
 import { queryClient } from '../src/lib/queryClient';
-import { useColors } from '../src/theme';
+import { font, useTheme } from '../src/design/tokens';
 
 setupNotifications();
 
@@ -34,10 +34,10 @@ function NotificationBridge() {
 }
 
 export default function RootLayout() {
-  const c = useColors();
+  const { c } = useTheme();
   const fontsReady = useAppFonts();
   // Hold the first frame until the fonts are in, so nothing flashes in a fallback face.
-  if (!fontsReady) return <View style={{ flex: 1, backgroundColor: c.bg }} />;
+  if (!fontsReady) return <View style={{ flex: 1, backgroundColor: c.ground }} />;
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
@@ -45,15 +45,17 @@ export default function RootLayout() {
         <Stack
           screenOptions={{
             headerShadowVisible: false,
-            headerStyle: { backgroundColor: c.bg },
-            headerTintColor: c.text,
-            contentStyle: { backgroundColor: c.bg },
+            headerStyle: { backgroundColor: c.ground },
+            headerTintColor: c.ink,
+            headerTitleStyle: { fontFamily: font.serif, fontSize: 22 },
+            contentStyle: { backgroundColor: c.ground },
+            animation: 'default',
           }}
         >
           <Stack.Screen name="index" options={{ headerShown: false }} />
           <Stack.Screen name="login" options={{ headerShown: false, animation: 'fade' }} />
           <Stack.Screen name="auth" options={{ headerShown: false }} />
-          <Stack.Screen name="flight/[id]" options={{ title: '' }} />
+          <Stack.Screen name="flight/[id]" options={{ headerShown: false }} />
           <Stack.Screen name="settings" options={{ title: 'Settings', presentation: 'modal' }} />
           <Stack.Screen name="design" options={{ title: 'Design system' }} />
         </Stack>

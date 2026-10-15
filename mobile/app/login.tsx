@@ -1,18 +1,21 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { Redirect } from 'expo-router';
 import { useState } from 'react';
-import { Platform, StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Button } from '../src/components/ui';
+import { Enter } from '../src/design/Enter';
+import { FlapCode } from '../src/design/FlapCode';
+import { FlightTrack } from '../src/design/FlightTrack';
+import { Text } from '../src/design/Text';
+import { space, useTheme } from '../src/design/tokens';
+import { Button } from '../src/design/ui';
 import { api } from '../src/lib/api';
 import { useAuth } from '../src/lib/auth';
 import { API_URL } from '../src/lib/config';
-import { useColors } from '../src/theme';
 
 export default function Login() {
-  const c = useColors();
+  const { c } = useTheme();
   const { status, signInWithGoogle, signInDemo } = useAuth();
   const [busy, setBusy] = useState<'google' | 'demo' | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -41,47 +44,50 @@ export default function Login() {
   else if (Platform.OS === 'web') googleHint = 'Google sign-in runs on the phone app. Use the demo here.';
 
   return (
-    <SafeAreaView style={[styles.screen, { backgroundColor: c.bg }]}>
+    <SafeAreaView style={[styles.screen, { backgroundColor: c.ground }]}>
       <View style={styles.top}>
-        <View style={[styles.logo, { backgroundColor: c.accent }]}>
-          <Ionicons name="airplane" size={34} color="#fff" style={{ transform: [{ rotate: '-45deg' }] }} />
-        </View>
-        <Text style={[styles.title, { color: c.text }]}>Airbud</Text>
-        <Text style={[styles.subtitle, { color: c.muted }]}>
-          Your flights, pulled from your inbox automatically. Countdown, reminders and boarding pass in one place.
-        </Text>
+        <Enter index={0}>
+          <FlapCode code="AIRBUD" v="codeXL" delay={200} />
+        </Enter>
+        <Enter index={2} style={styles.track}>
+          <FlightTrack mode="preview" height={30} />
+        </Enter>
+        <Enter index={3}>
+          <Text v="displayS" color="muted" style={styles.subtitle}>
+            Your flights, pulled from your inbox. Trips, countdowns, reminders and the boarding pass, in one calm place.
+          </Text>
+        </Enter>
       </View>
 
-      <View style={styles.bottom}>
+      <Enter index={5} style={styles.bottom}>
         <Button
           title="Continue with Google"
+          icon="mail"
           onPress={run('google', signInWithGoogle)}
           loading={busy === 'google'}
           disabled={!googleReady}
         />
-        {googleHint ? <Text style={[styles.hint, { color: c.muted }]}>{googleHint}</Text> : null}
+        {googleHint ? <Text v="caption" color="muted" style={styles.center}>{googleHint}</Text> : null}
         {config.data?.demo !== false ? (
-          <Button title="Try the demo" variant="secondary" onPress={run('demo', signInDemo)} loading={busy === 'demo'} />
+          <Button title="Try the demo" variant="quiet" onPress={run('demo', signInDemo)} loading={busy === 'demo'} />
         ) : null}
         {error || config.error ? (
-          <Text style={styles.error}>{error ?? (config.error as Error).message}</Text>
+          <Text v="body" color="alert" style={styles.center}>{error ?? (config.error as Error).message}</Text>
         ) : null}
-        <Text style={[styles.fine, { color: c.faint }]}>
+        <Text v="caption" color="muted" style={[styles.center, styles.fine]}>
           Read-only Gmail access. Only booking emails are processed.{'\n'}Server: {API_URL}
         </Text>
-      </View>
+      </Enter>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, paddingHorizontal: 24, justifyContent: 'space-between' },
-  top: { marginTop: 80, gap: 14 },
-  logo: { width: 68, height: 68, borderRadius: 22, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
-  title: { fontSize: 38, fontWeight: '800', letterSpacing: -0.5 },
-  subtitle: { fontSize: 17, lineHeight: 24 },
-  bottom: { gap: 12, marginBottom: 24 },
-  hint: { fontSize: 13, textAlign: 'center' },
-  error: { color: '#DC2626', fontSize: 14, textAlign: 'center' },
-  fine: { fontSize: 12, textAlign: 'center', marginTop: 8, lineHeight: 18 },
+  screen: { flex: 1, paddingHorizontal: space.xxl, justifyContent: 'space-between', maxWidth: 560, width: '100%', alignSelf: 'center' },
+  top: { marginTop: 96, gap: space.l },
+  track: { marginTop: space.xs, marginBottom: space.s },
+  subtitle: { maxWidth: 340 },
+  bottom: { gap: space.m, marginBottom: space.xxl },
+  center: { textAlign: 'center' },
+  fine: { marginTop: space.s },
 });

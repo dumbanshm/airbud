@@ -1,9 +1,11 @@
 import { useMutation } from '@tanstack/react-query';
 import { Redirect, router } from 'expo-router';
 import { useState } from 'react';
-import { Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, ScrollView, StyleSheet, View } from 'react-native';
 
-import { Button, Card, SectionTitle } from '../src/components/ui';
+import { Text } from '../src/design/Text';
+import { type Palette, space, useTheme } from '../src/design/tokens';
+import { Banner, Button, Card, Hairline, Label, Row } from '../src/design/ui';
 import { api } from '../src/lib/api';
 import { useAuth } from '../src/lib/auth';
 import { API_URL } from '../src/lib/config';
@@ -11,7 +13,6 @@ import { useEmails, useMe, usePermission, usePushStatus, useReminderCount } from
 import { requestPermission, sendTestReminder, storedPushToken } from '../src/lib/notifications';
 import { queryClient } from '../src/lib/queryClient';
 import { ago } from '../src/lib/time';
-import { useColors } from '../src/theme';
 
 const PERMISSION_TEXT = {
   granted: 'On',
@@ -20,10 +21,19 @@ const PERMISSION_TEXT = {
   unsupported: 'Not available on web',
 };
 
-const EMAIL_COLORS = { parsed: '#16A34A', no_match: '#6B7285', error: '#DC2626' };
+const EMAIL_TONE: Record<string, keyof Palette> = { parsed: 'good', no_match: 'muted', error: 'alert' };
+
+function Group({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <View style={styles.group}>
+      <Label>{title}</Label>
+      <Card style={styles.card}>{children}</Card>
+    </View>
+  );
+}
 
 export default function Settings() {
-  const c = useColors();
+  const { c } = useTheme();
   const { status, signOut } = useAuth();
   const me = useMe();
   const permission = usePermission();
@@ -46,85 +56,70 @@ export default function Settings() {
 
   if (status === 'signedOut') return <Redirect href="/login" />;
 
-  const Row = ({ label, value }: { label: string; value: string }) => (
-    <View style={styles.row}>
-      <Text style={[styles.k, { color: c.muted }]}>{label}</Text>
-      <Text style={[styles.v, { color: c.text }]}>{value}</Text>
-    </View>
-  );
-
   return (
-    <ScrollView style={{ backgroundColor: c.bg }} contentContainerStyle={styles.content}>
-      {message ? (
-        <Card style={{ backgroundColor: c.accentSoft, borderColor: 'transparent' }}>
-          <Text style={{ color: c.accent, fontWeight: '600' }}>{message}</Text>
-        </Card>
-      ) : null}
+    <ScrollView style={{ backgroundColor: c.ground }} contentContainerStyle={styles.content}>
+      {message ? <Banner icon="check">{message}</Banner> : null}
 
-      <SectionTitle>Account</SectionTitle>
-      <Card>
+      <Group title="Account">
         <Row label="Email" value={me.data?.email ?? '…'} />
         <Row label="Gmail" value={me.data?.is_demo ? 'Demo data' : me.data?.gmail_connected ? 'Connected (read-only)' : 'Not connected'} />
         {!me.data?.is_demo ? <Row label="Last checked" value={ago(me.data?.last_synced_at ?? null)} /> : null}
-        {me.data?.gmail_error ? <Text style={styles.error}>{me.data.gmail_error}</Text> : null}
-        <Button title="Check email now" variant="secondary" onPress={() => sync.mutate()} loading={sync.isPending} disabled={me.data?.is_demo} />
-      </Card>
+        {me.data?.gmail_error ? <Text v="caption" color="alert">{me.data.gmail_error}</Text> : null}
+        <Button title="Check email now" variant="quiet" icon="mail" onPress={() => sync.mutate()} loading={sync.isPending} disabled={me.data?.is_demo} style={styles.action} />
+      </Group>
 
-      <SectionTitle>Reminders (on this phone)</SectionTitle>
-      <Card>
+      <Group title="Reminders on this phone">
         <Row label="Permission" value={permission.data ? PERMISSION_TEXT[permission.data] : '…'} />
         <Row label="Scheduled" value={`${reminders.data ?? 0} reminders`} />
         {permission.data === 'undetermined' ? (
-          <Button title="Allow notifications" onPress={async () => { await requestPermission(); permission.refetch(); }} />
+          <Button title="Allow notifications" icon="bell" onPress={async () => { await requestPermission(); permission.refetch(); }} style={styles.action} />
         ) : permission.data === 'denied' ? (
-          <Button title="Open system Settings" variant="secondary" onPress={() => Linking.openSettings()} />
+          <Button title="Open system Settings" variant="quiet" onPress={() => Linking.openSettings()} style={styles.action} />
         ) : permission.data === 'granted' ? (
           <Button
             title="Send a test reminder in 5s"
-            variant="secondary"
+            variant="quiet"
+            icon="bell"
             onPress={async () => { await sendTestReminder(5); setMessage('Test reminder scheduled. Lock your phone to see it.'); }}
+            style={styles.action}
           />
         ) : null}
-      </Card>
+      </Group>
 
-      <SectionTitle>Push from server</SectionTitle>
-      <Card>
-        <Text style={[styles.body, { color: c.text }]}>
+      <Group title="Push from server">
+        <Text v="body">
           {push.isLoading ? 'Registering…' : push.data?.ok ? 'This phone is registered for new-flight and schedule-change alerts.' : push.data?.reason ?? 'Not registered'}
         </Text>
         {push.data?.ok ? (
           <>
-            <Text style={[styles.token, { color: c.faint }]} selectable>{push.data.token}</Text>
-            <Button title="Send a test push" variant="secondary" onPress={() => testPush.mutate()} loading={testPush.isPending} />
+            <Text v="numS" color="muted" selectable>{push.data.token}</Text>
+            <Button title="Send a test push" variant="quiet" onPress={() => testPush.mutate()} loading={testPush.isPending} style={styles.action} />
           </>
         ) : null}
-      </Card>
+      </Group>
 
-      <SectionTitle>Emails read</SectionTitle>
-      <Card>
+      <Group title="Emails read">
         {emails.data?.length ? (
-          emails.data.map((e) => (
-            <View key={e.id} style={styles.email}>
-              <View style={[styles.chip, { backgroundColor: EMAIL_COLORS[e.status] + '1F' }]}>
-                <Text style={[styles.chipText, { color: EMAIL_COLORS[e.status] }]}>{e.status.replace('_', ' ')}</Text>
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.subject, { color: c.text }]} numberOfLines={1}>{e.subject ?? '(no subject)'}</Text>
-                <Text style={[styles.detail, { color: c.muted }]} numberOfLines={2}>
-                  {e.parser ? `${e.parser} · ` : ''}{e.detail}
-                </Text>
+          emails.data.map((e, i) => (
+            <View key={e.id}>
+              {i ? <Hairline /> : null}
+              <View style={styles.email}>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text v="bodyStrong" numberOfLines={1}>{e.subject ?? '(no subject)'}</Text>
+                  <Text v="caption" color="muted" numberOfLines={2}>{e.parser ? `${e.parser} · ` : ''}{e.detail}</Text>
+                </View>
+                <Text v="label" color={EMAIL_TONE[e.status]}>{e.status.replace('_', ' ')}</Text>
               </View>
             </View>
           ))
         ) : (
-          <Text style={{ color: c.muted }}>No emails processed yet.</Text>
+          <Text v="body" color="muted">No emails processed yet.</Text>
         )}
-      </Card>
+      </Group>
 
-      <SectionTitle>App</SectionTitle>
-      <Card>
-        <Row label="Server" value={API_URL} />
-        {__DEV__ ? <Button title="Design system (dev)" variant="secondary" onPress={() => router.push('/design')} /> : null}
+      <Group title="App">
+        <Row label="Server" value={API_URL} mono />
+        {__DEV__ ? <Button title="Design system (dev)" variant="quiet" onPress={() => router.push('/design')} style={styles.action} /> : null}
         <Button
           title="Sign out"
           variant="danger"
@@ -133,23 +128,17 @@ export default function Settings() {
             queryClient.clear();
             router.replace('/login');
           }}
+          style={styles.action}
         />
-      </Card>
+      </Group>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { padding: 16, paddingBottom: 60, maxWidth: 560, width: '100%', alignSelf: 'center' },
-  row: { flexDirection: 'row', justifyContent: 'space-between', gap: 16 },
-  k: { fontSize: 14 },
-  v: { fontSize: 14, fontWeight: '600', flexShrink: 1, textAlign: 'right' },
-  body: { fontSize: 14, lineHeight: 20 },
-  token: { fontSize: 11 },
-  error: { color: '#DC2626', fontSize: 13 },
-  email: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
-  chip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, minWidth: 74, alignItems: 'center' },
-  chipText: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
-  subject: { fontSize: 14, fontWeight: '600' },
-  detail: { fontSize: 12, marginTop: 2 },
+  content: { padding: space.gutter, paddingBottom: space.huge, gap: space.xxl, maxWidth: 560, width: '100%', alignSelf: 'center' },
+  group: {},
+  card: { paddingVertical: space.m, gap: space.xs },
+  action: { marginTop: space.s },
+  email: { flexDirection: 'row', alignItems: 'center', gap: space.m, paddingVertical: space.s + 2 },
 });
