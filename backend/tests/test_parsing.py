@@ -27,7 +27,7 @@ def test_schema_org_merges_passengers_and_converts_timezone():
 
 def test_plain_text_itinerary():
     b = parse("02_emirates_itinerary")
-    assert b.parser == "generic_text" and b.pnr == "K4T9WD"
+    assert b.parser == "universal" and b.pnr == "K4T9WD"
     first, second = b.segments
     assert (first.flight_number, first.dep_airport, first.arr_airport) == ("EK511", "DEL", "DXB")
     assert first.dep_local == datetime(2026, 10, 27, 4, 15) and first.arr_local == datetime(2026, 10, 27, 6, 20)
@@ -57,7 +57,7 @@ def test_impossible_flight_is_dropped():
     raw = "PNR: ZZZ999\nAI 101  Delhi (DEL) → New York (JFK)\n12 Nov 2026  Departs 02:00  Arrives 01:00"
     result = parse_email(parse_raw(raw))
     # 02:00 IST → 01:00 next day EST is ~23h30, longer than any real flight
-    assert result.booking is None and "implausible" in result.notes[0]
+    assert result.booking is None and "don't fit" in result.notes[0]
 
 
 def test_dst_handled_by_airport_zone():

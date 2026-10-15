@@ -21,7 +21,7 @@ TOKEN_URL = "https://oauth2.googleapis.com/token"
 USERINFO_URL = "https://openidconnect.googleapis.com/v1/userinfo"
 GMAIL = "https://gmail.googleapis.com/gmail/v1/users/me"
 SCOPES = "openid email profile https://www.googleapis.com/auth/gmail.readonly"
-MAX_MESSAGES_PER_SYNC = 200
+MAX_MESSAGES_PER_SYNC = 500
 
 
 class GmailAccessRevoked(Exception):
@@ -143,7 +143,8 @@ def sync_user(session: Session, user: User) -> dict:
     stats = {"ok": True, "checked": 0, "parsed": 0, "changes": 0, "skipped": 0}
     all_changes = []
     with httpx.Client(headers={"Authorization": f"Bearer {token}"}, timeout=30) as client:
-        for mid in _message_ids(client):
+        # Oldest first, so a later schedule change wins over the original confirmation.
+        for mid in reversed(_message_ids(client)):
             if mid in seen:
                 continue
             try:

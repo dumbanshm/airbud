@@ -110,23 +110,45 @@ So a schedule change moves the reminders automatically, and nothing gets duplica
 
 ## How parsing works
 
-Each email goes through these in order. The first one that finds a valid flight wins:
+No LLM, and no per-airline setup needed for most emails. Each email goes through these in order;
+the first that finds a valid flight wins:
 
-1. **schema.org markup**: the structured flight data many airlines hide in the email HTML (`app/parsing/schema_org.py`)
-2. **Calendar attachments** (`.ics`) (`app/parsing/ics.py`)
-3. **Airline-specific parsers** you add (`app/parsing/airlines/`, see `_template.py`)
-4. **Generic text parser**: flight number + route + date + times near each other (`app/parsing/generic_text.py`)
+1. **schema.org markup**: structured flight data some airlines embed in the HTML (`schema_org.py`).
+2. **Calendar attachments** (`.ics`) (`ics.py`).
+3. **Airline/agency parsers** for layouts the universal one can't read alone: IndiGo, Alliance Air,
+   MakeMyTrip/Amazon Pay, Cleartrip, Away (`airlines/`, copy `_template.py` to add one).
+4. **Universal extractor** (`universal.py`) for everything else, including PDF e-ticket attachments.
+   For each flight number (`LH 401`, `BA0981`, `6E-556`, or `British Airways 178`), it collects
+   nearby airports (IATA codes or city/airport names), dates (`12 MAR`, `03 Jul 26`,
+   `Thu, Nov 19`, `2026-12-01`, `23. Nov. 2026`, with or without a year) and times (`06:00`,
+   `7:05 p.m.`, `0705 hours`, `14h30`, `+1`). It then picks the departure/arrival times **whose
+   duration fits the distance between the airports**. That's how it ignores boarding, bag-drop and
+   duration times without knowing the layout. It reads each email both ways (details after the
+   flight number, or before it) and keeps the reading that explains more distinct flights.
+
+On top of that, **boarding passes** are read from Apple Wallet attachments (`.pkpass`) and from
+IATA BCBP barcode text (`boarding_pass.py`). The barcode is the same on every airline's pass:
+it adds seats and passengers to a known flight, and never invents a time.
+
+Updates are merged rather than duplicated. Emails are processed oldest first, and an alert without
+a booking reference ("9I-507 … is rescheduled to 08:05") attaches to the flight you already have.
+Invoices and receipts are ignored; money like `Amount 10.40` is never read as a time.
 
 Every flight is checked before it's saved: real airports, arrival after departure, plausible duration.
-Times are stored as the airport's local time plus its timezone, looked up from the airport code,
-never guessed from the email.
+Times are stored as the airport's local time plus its timezone, looked up from the airport code.
 
-Settings → **Emails read** lists every email the app looked at and what happened to it. When one of
-your real emails comes back as "no match", fetch it with `GET /emails` (the raw body is kept
-for failures), drop it in `backend/tests/`, and write a parser for that airline.
+`backend/tests/test_corpus.py` holds ~20 layouts modelled on real airline and agency emails
+(Amadeus/GDS, British Airways, Ryanair, United, Expedia, Lufthansa in German, AirAsia, Qatar, …)
+plus non-flight emails that must not match. Every name and code in them is made up. If one of your
+emails comes back "no match" in Settings → **Emails read**, add a made-up copy of its layout
+there. Airlines missing from `airline_codes.py` still work when the email says "Flight XY 123".
+
+Layout research: [KDE Itinerary's supported providers](https://community.kde.org/KDE_PIM/KItinerary/Supported_Providers)
+and [extractor scripts](https://github.com/KDE/kitinerary/tree/master/src/lib/scripts); BCBP field widths from
+[georgesmith46/bcbp](https://github.com/georgesmith46/bcbp).
 
 ## Not done yet
 
 - Real flight status. It's simulated now; swap `app/flight_status.py` for an API (AeroDataBox has a free tier).
-- Real boarding passes. Parsing `.pkpass` / barcode PDFs would replace the placeholder QR code.
+- Show the real boarding pass in the app. `.pkpass` and barcode text are read now, but barcode *images* inside PDFs aren't decoded yet, and the app still shows a placeholder QR code.
 - Outlook support (same flow via Microsoft Graph).

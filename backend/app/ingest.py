@@ -56,6 +56,18 @@ def _apply(row: Segment, seg: ParsedSegment) -> None:
 def store_booking(session: Session, user: User, parsed: ParsedBooking) -> list[Change]:
     pnr = parsed.pnr
     if not pnr:
+        # Alerts like "9I-507 BLR-COK on 09-Oct-26 is rescheduled to 08:05" carry no reference:
+        # attach them to the booking that already has this flight.
+        first = parsed.segments[0]
+        known = session.exec(
+            select(Booking.pnr).join(Segment).where(
+                Segment.user_id == user.id, Segment.flight_number == first.flight_number,
+                Segment.dep_local >= first.dep_local - timedelta(days=2), Segment.dep_local <= first.dep_local + timedelta(days=2),
+                ~Booking.pnr.startswith("NOREF-"),
+            )
+        ).first()
+        pnr = known
+    if not pnr:
         # No reference found: key on the first leg so re-reading the same email doesn't duplicate it.
         first = parsed.segments[0]
         pnr = "NOREF-" + hashlib.sha1(f"{first.flight_number}{first.dep_local:%Y%m%d}".encode()).hexdigest()[:6].upper()
@@ -80,6 +92,13 @@ def store_booking(session: Session, user: User, parsed: ParsedBooking) -> list[C
 
     for seg in parsed.segments:
         row = _find_existing(session, booking, seg)
+        if not seg.time_known:
+            # Boarding-pass-only info (date, no time): enrich a known flight, never create or move one.
+            if row:
+                row.seats = ", ".join(seg.seats) or row.seats
+                row.passengers = row.passengers or ", ".join(seg.passengers)
+                row.updated_at = utcnow()
+            continue
         if row is None:
             row = Segment(booking_id=booking.id, user_id=user.id, flight_number=seg.flight_number,
                           dep_airport="", arr_airport="", dep_local=seg.dep_local, dep_tz="", arr_tz="", dep_utc=seg.dep_local)

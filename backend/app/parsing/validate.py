@@ -17,7 +17,7 @@ def problems(seg: ParsedSegment) -> list[str]:
             issues.append(f"unknown {label} airport {code!r}")
     if seg.dep_airport == seg.arr_airport:
         issues.append("departure and arrival airports are the same")
-    if issues or seg.arr_local is None:
+    if issues or seg.arr_local is None or not seg.time_known:
         return issues
 
     dep_utc = airports.local_to_utc(seg.dep_local, seg.dep_airport)

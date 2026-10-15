@@ -17,7 +17,7 @@ BOOKING_SENDERS = [
     "amazonpay.in", "heyaway.ai", "booking.com", "expedia.com", "skyscanner.net",
 ]
 DEFAULT_GMAIL_QUERY = (
-    "newer_than:1y "
+    "newer_than:1y -category:promotions "
     '{subject:(itinerary OR ticket OR e-ticket OR eticket OR "booking confirmation" OR "booking confirmed" '
     'OR "boarding pass" OR "flight confirmation" OR "schedule change" OR "your trip" OR PNR OR "trip id") '
     f"from:({' OR '.join(BOOKING_SENDERS)}) "

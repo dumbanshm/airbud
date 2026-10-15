@@ -1,12 +1,28 @@
 """Turn a raw RFC 822 message (or a bare HTML/text body) into EmailContent."""
 
 import email
+import io
+import logging
 from email import policy
 from email.utils import parsedate_to_datetime
 
 from bs4 import BeautifulSoup
 
 from .types import EmailContent
+
+log = logging.getLogger(__name__)
+MAX_PDF_PAGES = 15
+
+
+def pdf_to_text(data: bytes) -> str:
+    try:
+        from pypdf import PdfReader
+
+        reader = PdfReader(io.BytesIO(data))
+        return "\n".join((page.extract_text() or "") for page in reader.pages[:MAX_PDF_PAGES])
+    except Exception as exc:  # encrypted, scanned or malformed PDFs just contribute nothing
+        log.info("could not read PDF attachment: %s", exc)
+        return ""
 
 
 def html_to_text(html: str) -> str:
@@ -46,6 +62,14 @@ def parse_raw(raw: bytes | str) -> EmailContent:
             continue
         ctype = part.get_content_type()
         filename = (part.get_filename() or "").lower()
+        if ctype == "application/pdf" or filename.endswith(".pdf"):
+            content.pdf_texts.append(pdf_to_text(part.get_payload(decode=True) or b""))
+            continue
+        if ctype == "application/vnd.apple.pkpass" or filename.endswith(".pkpass"):
+            content.passes.append(part.get_payload(decode=True) or b"")
+            continue
+        if part.get_content_maintype() not in ("text",) and not filename.endswith(".ics"):
+            continue  # images etc.
         try:
             payload = part.get_content()
         except (LookupError, KeyError):

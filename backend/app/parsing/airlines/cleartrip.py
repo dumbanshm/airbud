@@ -14,7 +14,7 @@ from .. import airports
 from ..email_utils import html_to_text
 from ..types import EmailContent, ParsedBooking, ParsedSegment
 
-FLIGHT_RE = re.compile(r"^([A-Z0-9]{2})[ -]?(\d{1,4})$")
+FLIGHT_RE = re.compile(r"^([A-Z0-9]{2})\s*-?\s*(\d{1,4})$")
 CODE_RE = re.compile(r"^[A-Z]{3}$")
 TIME_RE = re.compile(r"^\d{2}:\d{2}$")
 DATE_RE = re.compile(r"^[A-Z][a-z]{2}, \d{1,2} [A-Z][a-z]{2} \d{4}$")
