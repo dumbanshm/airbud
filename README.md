@@ -34,10 +34,10 @@ Tests: `cd backend && uv run pytest`
 2. **APIs & Services → Library** → enable **Gmail API**.
 3. **OAuth consent screen** → User type **External**. Fill in the app name and your email.
    Add the scope `https://www.googleapis.com/auth/gmail.readonly`.
-4. On the consent screen page, click **Publish app** so the status is **In production**.
-   - Don't skip this. In "Testing" mode, Google sign-ins expire every 7 days.
-   - You do **not** need to submit for verification. Everyone will see an "unverified app" warning
-     the first time: they tap **Advanced → Go to Airbud**. Limit: 100 people.
+4. **Audience → Test users → Add users**: add your Gmail and each friend's (up to 100).
+   - Leave the app in **Testing**. Publishing needs a home page, privacy policy and authorized domain.
+   - Catch: in Testing, Google's Gmail access expires every 7 days. The app then shows a
+     **Reconnect Gmail** button; one tap renews it. Your flights and app login aren't affected.
 5. **Credentials → Create credentials → OAuth client ID** → type **Web application**.
    Under *Authorized redirect URIs* add:
    - `http://localhost:8000/auth/google/callback`

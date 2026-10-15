@@ -19,7 +19,7 @@ const DONE = ['landed', 'cancelled'];
 
 export default function Home() {
   const c = useColors();
-  const { status } = useAuth();
+  const { status, signInWithGoogle } = useAuth();
   const flights = useFlights();
   const me = useMe();
   const permission = usePermission();
@@ -67,6 +67,11 @@ export default function Home() {
         {me.data?.gmail_error ? (
           <Card style={{ backgroundColor: c.warnSoft, borderColor: 'transparent' }}>
             <Text style={{ color: c.warnText, fontWeight: '600' }}>{me.data.gmail_error}</Text>
+            {/* While the Google app is in "Testing", Gmail access expires every 7 days. One tap renews it. */}
+            <Button
+              title="Reconnect Gmail"
+              onPress={() => signInWithGoogle().then(() => queryClient.invalidateQueries()).catch(() => {})}
+            />
           </Card>
         ) : null}
 
