@@ -38,15 +38,21 @@ export async function setupNotifications() {
   });
   if (Platform.OS === 'android') {
     // Android 8+ won't show anything without a channel. 'default' is where Expo push lands.
-    await Notifications.setNotificationChannelAsync('default', {
-      name: 'Flight updates',
-      importance: Notifications.AndroidImportance.HIGH,
-    });
-    await Notifications.setNotificationChannelAsync('reminders', {
-      name: 'Flight reminders',
-      importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 250, 250, 250],
-    });
+    // Expo Go on Android can reject this (no channel provider); reminders still show on the
+    // default channel there, so a failure here must never break app startup.
+    try {
+      await Notifications.setNotificationChannelAsync('default', {
+        name: 'Flight updates',
+        importance: Notifications.AndroidImportance.HIGH,
+      });
+      await Notifications.setNotificationChannelAsync('reminders', {
+        name: 'Flight reminders',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+      });
+    } catch (e) {
+      console.warn('Could not create notification channels:', (e as Error).message);
+    }
   }
 }
 
