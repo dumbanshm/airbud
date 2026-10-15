@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
-from . import checkin, flight_status, gmail, push
+from . import checkin, flight_status, gmail, push, trips
 from .config import settings
 from .db import get_session
 from .deps import current_user
@@ -81,8 +81,7 @@ def me(user: User = Depends(current_user)):
     }
 
 
-@router.get("/flights")
-def flights(user: User = Depends(current_user), session: Session = Depends(get_session)):
+def _flights(user: User, session: Session) -> list[dict]:
     rows = session.exec(
         select(Segment, Booking).join(Booking).where(Segment.user_id == user.id).order_by(Segment.dep_utc)
     ).all()
@@ -90,6 +89,17 @@ def flights(user: User = Depends(current_user), session: Session = Depends(get_s
     originals = {p.segment_id: p for p in session.exec(
         select(PassFile).where(PassFile.segment_id.in_([seg.id for seg, _ in rows]))).all()}
     return [serialize(seg, booking, now, originals.get(seg.id)) for seg, booking in rows]
+
+
+@router.get("/flights")
+def flights(user: User = Depends(current_user), session: Session = Depends(get_session)):
+    return _flights(user, session)
+
+
+@router.get("/trips")
+def trip_list(user: User = Depends(current_user), session: Session = Depends(get_session)):
+    """Flights grouped into trips (see trips.py), oldest first, each with its flights inline."""
+    return trips.group(_flights(user, session))
 
 
 @router.get("/flights/{segment_id}")
