@@ -1,0 +1,20 @@
+From: Cleartrip Bookings <no-reply@cleartrip.com>
+Subject: Ticket for Bengaluru - New Delhi one-way flight -- Trip ID 123
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="b"
+
+--b
+Content-Type: text/plain; charset=utf-8
+
+YOUR BOOKING IS CONFIRMED. Bengaluru → New Delhi Fri, 23 Oct 2026 Air India 2810BLR 06:00 Time
+--b
+Content-Type: text/html; charset=utf-8
+
+<html><body>
+<div>Bengaluru → New Delhi</div><div>Fri, 23 Oct 2026</div>
+<div>Air India</div><div>STANDARD</div><div>AI 2810</div>
+<div>BLR</div><div>06:00</div><div>08:45</div><div>DEL</div>
+<div>Fri, 23 Oct 2026</div><div>2h 45m</div><div>Fri, 23 Oct 2026</div>
+<div>TRAVELLERS</div><div>PNR</div><div>Mr Alex Rivera</div><div>TEST78</div><div>Amount paid 10,402</div>
+</body></html>
+--b--

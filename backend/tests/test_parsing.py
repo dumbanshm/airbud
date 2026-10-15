@@ -77,3 +77,38 @@ def test_indigo_itinerary_one_and_two_line_rows():
     assert (second.flight_number, second.dep_airport, second.arr_airport) == ("6E977", "BLR", "GOI")
     assert second.arr_local == datetime(2026, 4, 23, 23, 55) and second.arr_terminal is None
     assert first.passengers == ["Alex Rivera"]
+
+
+def _fixture(name):
+    return parse_email(parse_raw((Path(__file__).parent / "emails" / name).read_text())).booking
+
+
+def test_alliance_air_sentence_and_city_names():
+    b = _fixture("alliance_air.eml")
+    (seg,) = b.segments
+    assert (b.parser, b.pnr) == ("alliance_air", "TEST34")
+    assert (seg.flight_number, seg.dep_airport, seg.arr_airport) == ("9I507", "BLR", "COK")  # KOCHI -> COK
+    assert seg.dep_local == datetime(2026, 10, 9, 7, 5) and seg.passengers == ["Alex Rivera"]
+
+
+def test_amazonpay_uses_html_when_plain_text_is_empty():
+    b = _fixture("amazonpay_makemytrip.eml")
+    assert (b.parser, b.pnr) == ("makemytrip", "TEST56")
+    first, second = b.segments  # the baggage table's repeat of AI-414 is ignored
+    assert (first.flight_number, first.dep_airport, first.arr_airport) == ("AI414", "JAI", "BOM")
+    assert second.arr_local == datetime(2026, 11, 13, 1, 45) and first.passengers == ["Alex Rivera"]
+
+
+def test_cleartrip_reads_html_not_glued_plain_text():
+    b = _fixture("cleartrip.eml")
+    (seg,) = b.segments
+    assert (b.parser, b.pnr, seg.passengers) == ("cleartrip", "TEST78", ["Alex Rivera"])
+    assert (seg.flight_number, seg.dep_airport, seg.arr_airport) == ("AI2810", "BLR", "DEL")
+    assert seg.arr_local == datetime(2026, 10, 23, 8, 45)
+
+
+def test_away_label_value_list():
+    b = _fixture("away.eml")
+    (seg,) = b.segments
+    assert (b.parser, b.pnr, seg.flight_number) == ("away", "TEST90", "6E415")
+    assert (seg.dep_airport, seg.arr_airport, seg.dep_local) == ("BLR", "JAI", datetime(2026, 11, 5, 9, 0))

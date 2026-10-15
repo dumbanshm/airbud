@@ -9,10 +9,18 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / "data"
 DATA_DIR.mkdir(exist_ok=True)
 
+# Booking emails: by subject, by sender (airlines and booking sites), or any calendar attachment.
+# Add the domain of any airline or booking site you use that this misses.
+BOOKING_SENDERS = [
+    "goindigo.in", "airindia.com", "airindiaexpress.com", "akasaair.com", "spicejet.com", "allianceair.in",
+    "cleartrip.com", "makemytrip.com", "goibibo.com", "ixigo.com", "easemytrip.com", "yatra.com",
+    "amazonpay.in", "heyaway.ai", "booking.com", "expedia.com", "skyscanner.net",
+]
 DEFAULT_GMAIL_QUERY = (
     "newer_than:1y "
-    '{subject:(itinerary OR e-ticket OR eticket OR "booking confirmation" OR "booking confirmed" '
-    'OR "boarding pass" OR "flight confirmation" OR "schedule change" OR "your trip" OR PNR) '
+    '{subject:(itinerary OR ticket OR e-ticket OR eticket OR "booking confirmation" OR "booking confirmed" '
+    'OR "boarding pass" OR "flight confirmation" OR "schedule change" OR "your trip" OR PNR OR "trip id") '
+    f"from:({' OR '.join(BOOKING_SENDERS)}) "
     "filename:ics}"
 )
 

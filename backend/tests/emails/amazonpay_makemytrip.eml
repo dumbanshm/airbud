@@ -1,0 +1,26 @@
+From: Amazon Pay India <no-reply@amazonpay.in>
+Subject: Jaipur to Bengaluru Flight E-Ticket
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="b"
+
+--b
+Content-Type: text/plain; charset=utf-8
+
+<html><body></body></html>
+--b
+Content-Type: text/html; charset=utf-8
+
+<html><body>
+<p>Your flight booking is successful (PNR:TEST56).</p>
+<div>Air India AI-414</div><div>Economy</div><div>PNR:</div><div>TEST56</div>
+<div>JAI</div><div>06:55</div><div>Thu, 12 Nov 2026</div><div>Terminal - T2,</div>
+<div>Jaipur Airport, Jaipur</div><div>2h 00m</div><div>duration</div>
+<div>08:55</div><div>BOM</div><div>Thu, 12 Nov 2026</div><div>Terminal - T2,</div>
+<div>Name</div><div>Seat</div><div>Meal</div><div>Status</div><div>Alex Rivera</div><div>Confirmed</div>
+<div>Air India AI-2863</div><div>PNR:</div><div>TEST56</div>
+<div>BOM</div><div>23:55</div><div>Thu, 12 Nov 2026</div><div>Terminal - T2,</div>
+<div>1h 50m</div><div>duration</div>
+<div>01:45</div><div>BLR</div><div>Fri, 13 Nov 2026</div><div>Terminal - T2,</div>
+<div>Baggage Information</div><div>JAI - BOM,</div><div>Air India AI-414</div><div>Passenger</div>
+</body></html>
+--b--

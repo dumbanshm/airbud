@@ -61,5 +61,11 @@ def parse_raw(raw: bytes | str) -> EmailContent:
 
     if html_parts:
         content.html = "\n".join(html_parts)
-    content.text = "\n".join(text_parts) if text_parts else (html_to_text(content.html) if content.html else "")
+    plain = "\n".join(text_parts)
+    html_text = html_to_text(content.html) if content.html else ""
+    # Some senders ship an empty plain-text part (even an empty HTML skeleton) next to the real
+    # HTML. Use the HTML's text in that case.
+    if len(html_to_text(plain)) < 200 <= len(html_text):
+        plain = ""
+    content.text = plain or html_text
     return content

@@ -24,7 +24,32 @@ AIRLINES = {
     "UL": "SriLankan", "VN": "Vietnam Airlines", "GA": "Garuda", "PR": "Philippine Airlines",
     "ET": "Ethiopian", "MS": "EgyptAir", "LO": "LOT", "OS": "Austrian", "SN": "Brussels",
     "TP": "TAP", "EI": "Aer Lingus", "VA": "Virgin Australia", "TR": "Scoot", "3K": "Jetstar Asia",
+    "9I": "Alliance Air", "S5": "Star Air", "2T": "TruJet", "OG": "Fly91",
 }
+
+# Cities whose current name differs from the airport database's.
+CITY_ALIASES = {
+    "kochi": "COK", "cochin": "COK", "bengaluru": "BLR", "bangalore": "BLR", "mumbai": "BOM",
+    "bombay": "BOM", "chennai": "MAA", "madras": "MAA", "kolkata": "CCU", "calcutta": "CCU",
+    "delhi": "DEL", "new delhi": "DEL", "thiruvananthapuram": "TRV", "trivandrum": "TRV",
+    "mysuru": "MYQ", "mangaluru": "IXE", "mangalore": "IXE", "hubballi": "HBX", "hubli": "HBX",
+    "belagavi": "IXG", "belgaum": "IXG", "kozhikode": "CCJ", "calicut": "CCJ",
+    "visakhapatnam": "VTZ", "vizag": "VTZ", "prayagraj": "IXD", "allahabad": "IXD",
+    "vadodara": "BDQ", "baroda": "BDQ", "pune": "PNQ", "hyderabad": "HYD", "puducherry": "PNY",
+}
+
+
+def code_for_city(name: str, country: str | None = None) -> str | None:
+    """IATA code for a city name, or None if unknown or ambiguous (e.g. a city with two airports)."""
+    key = " ".join(name.lower().replace(".", " ").split())
+    if key in CITY_ALIASES:
+        return CITY_ALIASES[key]
+    hits = [
+        code for code, a in _AIRPORTS.items()
+        if (country is None or a.get("country") == country)
+        and (a.get("city") or "").lower() == key
+    ]
+    return hits[0] if len(hits) == 1 else None
 
 
 def airport(code: str | None) -> dict | None:
