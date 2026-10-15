@@ -1,0 +1,23 @@
+From: Emirates <do-not-reply@emirates.example>
+To: demo@airbud.local
+Subject: Your e-ticket itinerary - Booking reference K4T9WD
+Message-ID: <demo-02@airbud.local>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+
+Dear Demo Traveler,
+
+Thank you for booking with us.
+Booking reference: K4T9WD
+
+Flight 1
+EK 511    New Delhi (DEL) → Dubai (DXB)
+$ek_date_text    Departs 04:15    Arrives 06:20
+Terminal 3 / Terminal 3    Seat 34K
+
+Flight 2
+EK 29    Dubai (DXB) → London Heathrow (LHR)
+$ek_date_text    Departs 08:30    Arrives 12:45
+Terminal 3 / Terminal 3    Seat 41A
+
+Baggage allowance: 30kg

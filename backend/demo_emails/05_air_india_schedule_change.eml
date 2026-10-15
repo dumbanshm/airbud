@@ -1,0 +1,18 @@
+From: Air India <noreply@airindia.example>
+To: demo@airbud.local
+Subject: Schedule change for booking QX7P2M
+Message-ID: <demo-05@airbud.local>
+MIME-Version: 1.0
+Content-Type: text/html; charset=utf-8
+
+<html><head>
+<script type="application/ld+json">
+{"@context": "http://schema.org", "@type": "FlightReservation", "reservationNumber": "QX7P2M",
+ "reservationStatus": "http://schema.org/ReservationConfirmed",
+ "underName": {"@type": "Person", "name": "Demo Traveler"},
+ "reservationFor": {"@type": "Flight", "flightNumber": "504",
+  "airline": {"@type": "Airline", "name": "Air India", "iataCode": "AI"},
+  "departureAirport": {"@type": "Airport", "iataCode": "DEL"}, "departureTime": "$ai504_new_dep", "departureTerminal": "3",
+  "arrivalAirport": {"@type": "Airport", "iataCode": "BLR"}, "arrivalTime": "$ai504_new_arr"}}
+</script></head>
+<body><p>The departure time of AI 504 has changed. We apologise for the inconvenience.</p></body></html>

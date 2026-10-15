@@ -1,0 +1,29 @@
+From: IndiGo <reservations@goindigo.example>
+To: demo@airbud.local
+Subject: Your trip is confirmed
+Message-ID: <demo-03@airbud.local>
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="b1"
+
+--b1
+Content-Type: text/plain; charset=utf-8
+
+Your booking is confirmed. Your itinerary is attached as a calendar file.
+--b1
+Content-Type: text/calendar; charset=utf-8; name="trip.ics"
+Content-Disposition: attachment; filename="trip.ics"
+
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//airbud demo//EN
+BEGIN:VEVENT
+UID:r8lmqz-1@airbud.local
+DTSTAMP:20260101T000000Z
+SUMMARY:Flight 6E 2134 BOM → BLR
+DTSTART:$indigo_dep_utc
+DTEND:$indigo_arr_utc
+LOCATION:Mumbai (BOM)
+DESCRIPTION:PNR R8LMQZ
+END:VEVENT
+END:VCALENDAR
+--b1--

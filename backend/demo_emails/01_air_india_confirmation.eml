@@ -1,0 +1,34 @@
+From: Air India <noreply@airindia.example>
+To: demo@airbud.local
+Subject: Booking confirmed - QX7P2M
+Message-ID: <demo-01@airbud.local>
+MIME-Version: 1.0
+Content-Type: text/html; charset=utf-8
+
+<html><head>
+<script type="application/ld+json">
+[
+ {"@context": "http://schema.org", "@type": "FlightReservation", "reservationNumber": "QX7P2M",
+  "reservationStatus": "http://schema.org/ReservationConfirmed",
+  "underName": {"@type": "Person", "name": "Demo Traveler"}, "airplaneSeat": "14C",
+  "reservationFor": {"@type": "Flight", "flightNumber": "503",
+   "airline": {"@type": "Airline", "name": "Air India", "iataCode": "AI"},
+   "departureAirport": {"@type": "Airport", "iataCode": "BLR"}, "departureTime": "$ai503_dep", "departureTerminal": "2",
+   "arrivalAirport": {"@type": "Airport", "iataCode": "DEL"}, "arrivalTime": "$ai503_arr", "arrivalTerminal": "3"}},
+ {"@context": "http://schema.org", "@type": "FlightReservation", "reservationNumber": "QX7P2M",
+  "reservationStatus": "http://schema.org/ReservationConfirmed",
+  "underName": {"@type": "Person", "name": "Sam Traveler"}, "airplaneSeat": "14D",
+  "reservationFor": {"@type": "Flight", "flightNumber": "503",
+   "airline": {"@type": "Airline", "name": "Air India", "iataCode": "AI"},
+   "departureAirport": {"@type": "Airport", "iataCode": "BLR"}, "departureTime": "$ai503_dep", "departureTerminal": "2",
+   "arrivalAirport": {"@type": "Airport", "iataCode": "DEL"}, "arrivalTime": "$ai503_arr", "arrivalTerminal": "3"}},
+ {"@context": "http://schema.org", "@type": "FlightReservation", "reservationNumber": "QX7P2M",
+  "reservationStatus": "http://schema.org/ReservationConfirmed",
+  "underName": {"@type": "Person", "name": "Demo Traveler"},
+  "reservationFor": {"@type": "Flight", "flightNumber": "504",
+   "airline": {"@type": "Airline", "name": "Air India", "iataCode": "AI"},
+   "departureAirport": {"@type": "Airport", "iataCode": "DEL"}, "departureTime": "$ai504_dep", "departureTerminal": "3",
+   "arrivalAirport": {"@type": "Airport", "iataCode": "BLR"}, "arrivalTime": "$ai504_arr"}}
+]
+</script></head>
+<body><h1>Your booking is confirmed</h1><p>Booking reference QX7P2M. Have a great trip.</p></body></html>
