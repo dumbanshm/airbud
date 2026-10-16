@@ -20,7 +20,10 @@ def test_demo_account_groups_into_three_trips():
         ("Bangalore", "one_way"), ("New Delhi", "round_trip"), ("London", "one_way")]
     past, delhi, london = got
     assert past["past"] and not delhi["past"]
-    assert (delhi["start_date"], delhi["end_date"]) == ("2026-10-16", "2026-10-21")
+    # Demo flights are generated relative to today, so check against the flights, not fixed dates.
+    first, last = delhi["flights"][0], delhi["flights"][-1]
+    assert delhi["start_date"] == first["departure"]["local_time"][:10]
+    assert delhi["end_date"] == last["arrival"]["local_time"][:10]
     assert [f["flight_number"] for f in delhi["flights"]] == ["AI 503", "AI 504"]
     assert len(delhi["journeys"]) == 2
     assert [f["flight_number"] for f in london["flights"]] == ["EK 511", "EK 29"]
